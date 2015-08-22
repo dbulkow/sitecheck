@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"text/template"
@@ -42,5 +43,17 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/", statusHandler)
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	//log.Fatal(http.ListenAndServe(":8080", nil))
+
+	err, healthy := etcdStatus("http://fumble.foo.com:2379")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	if healthy {
+		fmt.Println("healthy")
+	} else {
+		fmt.Println("not healthy")
+	}
 }
