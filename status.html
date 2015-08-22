@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+
+  <meta charset="utf-8">
+  <title>Service Check</title>
+
+</head>
+
+<body>
+
+  <table>
+
+    {{range .}}
+    <tr>
+      <td>{{.Name}}</td>
+      <td>{{.Service}}</td>
+      <td>{{.Status}}</td>
+    </tr>
+    {{end}}
+
+  </table>
+
+</body>
+</html>
