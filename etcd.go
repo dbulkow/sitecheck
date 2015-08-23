@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type Members struct {
+type members struct {
 	Members []struct {
 		ClientURLs []string `json:"clientURLs"`
 		ID         string   `json:"id"`
@@ -26,7 +26,7 @@ type member struct {
 	PeerURLs   []string
 }
 
-type Stats struct {
+type stats struct {
 	ID         string `json:"id"`
 	LeaderInfo struct {
 		Leader    string `json:"leader"`
@@ -43,7 +43,7 @@ type Stats struct {
 }
 
 // Read all members of an etcd cluster
-func etcdMembers(url string) (error, *Members) {
+func etcdMembers(url string) (error, *members) {
 	resp, err := http.Get(url + "/v2/members")
 	if err != nil {
 		return err, nil
@@ -55,7 +55,7 @@ func etcdMembers(url string) (error, *Members) {
 		return err, nil
 	}
 
-	members := &Members{}
+	members := &members{}
 
 	err = json.Unmarshal(body, &members)
 	if err != nil {
@@ -65,7 +65,7 @@ func etcdMembers(url string) (error, *Members) {
 	return nil, members
 }
 
-func getStats(m *member) *Stats {
+func getStats(m *member) *stats {
 	for _, url := range m.ClientURLs {
 		resp, err := http.Get(url + "/v2/stats/self")
 		if err != nil {
@@ -73,7 +73,7 @@ func getStats(m *member) *Stats {
 			continue
 		}
 
-		stats := &Stats{}
+		stats := &stats{}
 		d := json.NewDecoder(resp.Body)
 		err = d.Decode(&stats)
 		resp.Body.Close()
@@ -96,7 +96,7 @@ func etcdStatus(url string) (error, bool) {
 	}
 
 	// collect stats from all members
-	s1 := make([]*Stats, 0)
+	s1 := make([]*stats, 0)
 	for _, m := range members.Members {
 		member := &member{
 			ClientURLs: m.ClientURLs,
@@ -113,7 +113,7 @@ func etcdStatus(url string) (error, bool) {
 	time.Sleep(time.Millisecond * 500)
 
 	// do it again
-	s2 := make([]*Stats, 0)
+	s2 := make([]*stats, 0)
 	for _, m := range members.Members {
 		member := &member{
 			ClientURLs: m.ClientURLs,
