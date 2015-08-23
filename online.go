@@ -1,11 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"text/template"
 )
+
+type Status struct {
+	Name    string
+	Service string
+	Status  string
+	URL     string
+}
+
+var status []Status
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("status.html")
@@ -13,23 +21,6 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		log.Println(err)
 		return
-	}
-
-	status := []struct {
-		Name    string
-		Service string
-		Status  string
-	}{
-		{
-			Name:    "name1",
-			Service: "service1",
-			Status:  "status1",
-		},
-		{
-			Name:    "name2",
-			Service: "service2",
-			Status:  "status2",
-		},
 	}
 
 	err = t.Execute(w, status)
@@ -41,19 +32,77 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	status = make([]Status, 0)
+
+	status = append(status, Status{
+		Name:    "etcd cluster",
+		Service: "etcd",
+		URL:     "http://fumble.foo.com:2379",
+		Status:  "offline",
+	})
+	status = append(status, Status{
+		Name:    "Jenkins",
+		Service: "website",
+		URL:     "http://fumble.foo.com/jenkins",
+		Status:  "offline",
+	})
+	status = append(status, Status{
+		Name:    "Jenkins",
+		Service: "website",
+		URL:     "http://fumble.foo.com/jenkins",
+		Status:  "offline",
+	})
+	status = append(status, Status{
+		Name:    "OpenGrok",
+		Service: "website",
+		URL:     "http://134.111.220.68:8080",
+		Status:  "offline",
+	})
+	status = append(status, Status{
+		Name:    "OpenGrok",
+		Service: "website",
+		URL:     "http://fumble.foo.com/source",
+		Status:  "offline",
+	})
+	status = append(status, Status{
+		Name:    "nginx",
+		Service: "website",
+		URL:     "http://fumble.foo.com",
+		Status:  "offline",
+	})
+	status = append(status, Status{
+		Name:    "nginx",
+		Service: "website",
+		URL:     "http://fumble.foo.com",
+		Status:  "offline",
+	})
+
 	http.HandleFunc("/", statusHandler)
 
-	//log.Fatal(http.ListenAndServe(":8080", nil))
+	for i, s := range status {
+		switch s.Service {
+		case "etcd":
+			err, healthy := etcdStatus(s.URL)
+			if err != nil {
+				log.Println(err)
+				return
+			}
 
-	err, healthy := etcdStatus("http://fumble.foo.com:2379")
-	if err != nil {
-		log.Println(err)
-		return
+			if healthy {
+				status[i].Status = "online"
+			}
+		case "website":
+			err, healthy := websiteStatus(s.URL)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			if healthy {
+				status[i].Status = "online"
+			}
+		}
 	}
 
-	if healthy {
-		fmt.Println("healthy")
-	} else {
-		fmt.Println("not healthy")
-	}
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
