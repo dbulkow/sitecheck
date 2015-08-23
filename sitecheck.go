@@ -22,7 +22,7 @@ type sites struct {
 func readConfig() ([]status, error) {
 	var config sites
 
-	_, err := toml.DecodeFile("online.conf", &config)
+	_, err := toml.DecodeFile("sitecheck.conf", &config)
 	if err != nil {
 		return nil, err
 	}
