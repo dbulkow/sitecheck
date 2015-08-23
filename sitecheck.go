@@ -19,6 +19,12 @@ type sites struct {
 	Service []status
 }
 
+type Status interface {
+	Check(url string) (error, bool)
+}
+
+var check map[string]Status
+
 func readConfig() ([]status, error) {
 	var config sites
 
@@ -39,27 +45,14 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i, s := range status {
-		switch s.Type {
-		case "etcd":
-			err, healthy := etcdStatus(s.URL)
-			if err != nil {
-				log.Println(err)
-				return
-			}
+		err, healthy := check[s.Type].Check(s.URL)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
-			if healthy {
-				status[i].Status = "online"
-			}
-		case "website":
-			err, healthy := websiteStatus(s.URL)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			if healthy {
-				status[i].Status = "online"
-			}
+		if healthy {
+			status[i].Status = "online"
 		}
 	}
 
@@ -79,6 +72,10 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	check = make(map[string]Status, 0)
+	check["website"] = new(Website)
+	check["etcd"] = new(Etcd)
+
 	http.HandleFunc("/", statusHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))

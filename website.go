@@ -2,7 +2,9 @@ package main
 
 import "net/http"
 
-func websiteStatus(url string) (error, bool) {
+type Website struct{}
+
+func (w *Website) Check(url string) (error, bool) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err, false

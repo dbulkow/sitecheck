@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+type Etcd struct{}
+
 type members struct {
 	Members []struct {
 		ClientURLs []string `json:"clientURLs"`
@@ -89,7 +91,7 @@ func getStats(m *member) *stats {
 }
 
 // Iterate over all members looking for health
-func etcdStatus(url string) (error, bool) {
+func (e *Etcd) Check(url string) (error, bool) {
 	err, members := etcdMembers(url)
 	if err != nil {
 		return err, false
