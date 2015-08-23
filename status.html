@@ -15,7 +15,7 @@
     <tr>
       <td>{{.Name}}</td>
       <td>{{.Type}}</td>
-      <td>{{.URL}}</td>
+      <td>{{if eq .Type "website" }} <a href="{{.URL}}">{{.URL}}</a> {{ else }} {{.URL}} {{ end }}</td>
       <td>{{.Status}}</td>
     </tr>
     {{end}}
