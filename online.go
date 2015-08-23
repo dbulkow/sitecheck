@@ -13,26 +13,8 @@ type Status struct {
 	URL     string
 }
 
-var status []Status
-
 func statusHandler(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles("status.html")
-	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
-
-	err = t.Execute(w, status)
-	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
-}
-
-func main() {
-	status = make([]Status, 0)
+	status := make([]Status, 0)
 
 	status = append(status, Status{
 		Name:    "etcd cluster",
@@ -77,8 +59,6 @@ func main() {
 		Status:  "offline",
 	})
 
-	http.HandleFunc("/", statusHandler)
-
 	for i, s := range status {
 		switch s.Service {
 		case "etcd":
@@ -103,6 +83,24 @@ func main() {
 			}
 		}
 	}
+
+	t, err := template.ParseFiles("status.html")
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+
+	err = t.Execute(w, status)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+}
+
+func main() {
+	http.HandleFunc("/", statusHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
