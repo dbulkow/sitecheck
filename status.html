@@ -14,7 +14,6 @@
     {{range .}}
     <tr>
       <td>{{.Name}}</td>
-      <td>{{.Type}}</td>
       <td>{{if eq .Type "website" }} <a href="{{.URL}}">{{.URL}}</a> {{ else }} {{.URL}} {{ end }}</td>
       <td>{{.Status}}</td>
     </tr>
