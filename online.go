@@ -4,63 +4,42 @@ import (
 	"log"
 	"net/http"
 	"text/template"
+
+	"github.com/BurntSushi/toml"
 )
 
-type Status struct {
-	Name    string
-	Service string
-	Status  string
-	URL     string
+type status struct {
+	Name   string `toml:"name"`
+	Type   string `toml:"type"`
+	Status string
+	URL    string `toml:"url"`
+}
+
+type sites struct {
+	Service []status
+}
+
+func readConfig() ([]status, error) {
+	var config sites
+
+	_, err := toml.DecodeFile("online.conf", &config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config.Service, nil
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
-	status := make([]Status, 0)
-
-	status = append(status, Status{
-		Name:    "etcd cluster",
-		Service: "etcd",
-		URL:     "http://fumble.foo.com:2379",
-		Status:  "offline",
-	})
-	status = append(status, Status{
-		Name:    "Jenkins",
-		Service: "website",
-		URL:     "http://fumble.foo.com/jenkins",
-		Status:  "offline",
-	})
-	status = append(status, Status{
-		Name:    "Jenkins",
-		Service: "website",
-		URL:     "http://fumble.foo.com/jenkins",
-		Status:  "offline",
-	})
-	status = append(status, Status{
-		Name:    "OpenGrok",
-		Service: "website",
-		URL:     "http://134.111.220.68:8080",
-		Status:  "offline",
-	})
-	status = append(status, Status{
-		Name:    "OpenGrok",
-		Service: "website",
-		URL:     "http://fumble.foo.com/source",
-		Status:  "offline",
-	})
-	status = append(status, Status{
-		Name:    "nginx",
-		Service: "website",
-		URL:     "http://fumble.foo.com",
-		Status:  "offline",
-	})
-	status = append(status, Status{
-		Name:    "nginx",
-		Service: "website",
-		URL:     "http://fumble.foo.com",
-		Status:  "offline",
-	})
+	status, err := readConfig()
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
 
 	for i, s := range status {
-		switch s.Service {
+		switch s.Type {
 		case "etcd":
 			err, healthy := etcdStatus(s.URL)
 			if err != nil {
