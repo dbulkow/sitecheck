@@ -1,10 +1,10 @@
-Monitor web sites and services
+# Monitor web sites and services
 
-Configuration File
+## Configuration File
 
-sitecheck.conf
+Add services to **sitecheck.conf**.
 
-[[service]]
-name = "service name"
-type = "website" or "etcd"
-url  = "http://fumble.foo.bar.com:666/root"
+    [[service]]
+    name = "service name"
+    type = "website" or "etcd"
+    url  = "http://fumble.foo.bar.com:666/root"
