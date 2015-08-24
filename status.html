@@ -5,6 +5,16 @@
   <meta charset="utf-8">
   <title>Service Check</title>
 
+<style>
+.offline {
+    color: red
+}
+
+.online {
+    color: green
+}
+</style>
+
 </head>
 
 <body>
@@ -14,8 +24,8 @@
     {{range .}}
     <tr>
       <td>{{.Name}}</td>
-      <td>{{if eq .Type "website" }} <a href="{{.URL}}">{{.URL}}</a> {{ else }} {{.URL}} {{ end }}</td>
-      <td>{{.Status}}</td>
+      <td>{{ if eq .Type "website" }} <a href="{{.URL}}">{{.URL}}</a> {{ else }} {{.URL}} {{ end }}</td>
+      <td class="{{.Status}}">{{.Status}}</td>
     </tr>
     {{end}}
 
