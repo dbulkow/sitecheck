@@ -45,10 +45,11 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i, s := range status {
+		status[i].Status = "offline"
+
 		err, healthy := check[s.Type].Check(s.URL)
 		if err != nil {
 			log.Println(err)
-			return
 		}
 
 		if healthy {
