@@ -16,5 +16,5 @@ Add services to **sitecheck.conf**.
 
     [[service]]
     name = "service name"
-    type = "website" or "etcd"
+    type = "website" or "etcd" or "docker"
     url  = "http://fumble.foo.bar.com:666/root"

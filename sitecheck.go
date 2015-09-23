@@ -83,6 +83,7 @@ func main() {
 	check = make(map[string]Status, 0)
 	check["website"] = new(Website)
 	check["etcd"] = new(Etcd)
+	check["docker"] = new(Docker)
 
 	http.HandleFunc("/", statusHandler)
 
