@@ -43,12 +43,12 @@ func etcdMembers(url string) (error, *members) {
 }
 
 // Iterate over all members looking for health
-func (e *Etcd) Check(url string) (error, bool) {
+func (e *Etcd) Check(url string) (bool, error) {
 	health := false
 
 	err, members := etcdMembers(url)
 	if err != nil {
-		return err, health
+		return health, err
 	}
 
 	for _, m := range members.Members {
@@ -79,5 +79,5 @@ func (e *Etcd) Check(url string) (error, bool) {
 		}
 	}
 
-	return nil, health
+	return health, nil
 }

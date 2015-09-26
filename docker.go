@@ -11,10 +11,10 @@ import (
 
 type Docker struct{}
 
-func (d *Docker) Check(url string) (error, bool) {
+func (d *Docker) Check(url string) (bool, error) {
 	home := os.Getenv("HOME")
 	if home == "" {
-		return errors.New("HOME environment not configured"), false
+		return false, errors.New("HOME environment not configured")
 	}
 
 	certFile := home + "/.docker/cert.pem"
@@ -23,12 +23,12 @@ func (d *Docker) Check(url string) (error, bool) {
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		return err, false
+		return false, err
 	}
 
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		return err, false
+		return false, err
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -44,12 +44,12 @@ func (d *Docker) Check(url string) (error, bool) {
 
 	resp, err := client.Get(url + "/info")
 	if err != nil {
-		return err, false
+		return false, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, false
+		return false, nil
 	}
 	/*
 		body, err := ioutil.ReadAll(resp.Body)
@@ -57,5 +57,5 @@ func (d *Docker) Check(url string) (error, bool) {
 			log.Println(url+"/info", string(body))
 		}
 	*/
-	return nil, true
+	return true, nil
 }

@@ -20,7 +20,7 @@ type sites struct {
 }
 
 type Status interface {
-	Check(url string) (error, bool)
+	Check(url string) (bool, error)
 }
 
 var check map[string]Status
@@ -53,7 +53,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		err, healthy := ck.Check(s.URL)
+		healthy, err := ck.Check(s.URL)
 		if err != nil {
 			log.Println(s.Type, s.URL, err)
 			continue

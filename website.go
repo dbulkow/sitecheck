@@ -4,16 +4,16 @@ import "net/http"
 
 type Website struct{}
 
-func (w *Website) Check(url string) (error, bool) {
+func (w *Website) Check(url string) (bool, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		return err, false
+		return false, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, false
+		return false, nil
 	}
 
-	return nil, true
+	return true, nil
 }

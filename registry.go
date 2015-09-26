@@ -7,16 +7,16 @@ import (
 
 type Registry struct{}
 
-func (w *Registry) Check(url string) (error, bool) {
+func (w *Registry) Check(url string) (bool, error) {
 	resp, err := http.Get(url + "/v2/")
 	if err != nil {
-		return err, false
+		return false, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return errors.New("Bad status"), false
+		return false, errors.New("Bad status")
 	}
 
-	return nil, true
+	return true, nil
 }
