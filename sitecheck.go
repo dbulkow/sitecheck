@@ -49,13 +49,13 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 
 		ck, ok := check[s.Type]
 		if ok == false {
-			log.Println(err)
+			log.Println(s.Type, s.URL, err)
 			continue
 		}
 
 		err, healthy := ck.Check(s.URL)
 		if err != nil {
-			log.Println(err)
+			log.Println(s.Type, s.URL, err)
 			continue
 		}
 
