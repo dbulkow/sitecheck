@@ -84,6 +84,7 @@ func main() {
 	check["website"] = new(Website)
 	check["etcd"] = new(Etcd)
 	check["docker"] = new(Docker)
+	check["registry"] = new(Registry)
 
 	http.HandleFunc("/", statusHandler)
 
