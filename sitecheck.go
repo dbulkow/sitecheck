@@ -80,11 +80,12 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	check = make(map[string]Status, 0)
-	check["website"] = new(Website)
-	check["etcd"] = new(Etcd)
-	check["docker"] = new(Docker)
-	check["registry"] = new(Registry)
+	check = map[string]Status{
+		"website":  new(Website),
+		"etcd":     new(Etcd),
+		"docker":   new(Docker),
+		"registry": new(Registry),
+	}
 
 	http.HandleFunc("/", statusHandler)
 
