@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"text/template"
 
@@ -38,6 +39,14 @@ func readConfig() ([]status, error) {
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	hosts, err := net.LookupAddr(host)
+	if err != nil {
+		log.Println("request from", r.RemoteAddr)
+	} else {
+		log.Println("request from", hosts)
+	}
+
 	status, err := readConfig()
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
