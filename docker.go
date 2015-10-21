@@ -3,18 +3,22 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"sync"
 )
 
-type Docker struct{}
+type Docker struct {
+	transport *http.Transport
+}
 
-func (d *Docker) Check(url string) (bool, error) {
+func (d *Docker) setupTLS() {
 	home := os.Getenv("HOME")
 	if home == "" {
-		return false, errors.New("HOME environment not configured")
+		log.Fatal("HOME environment not configured")
+		return
 	}
 
 	certFile := home + "/.docker/cert.pem"
@@ -23,12 +27,14 @@ func (d *Docker) Check(url string) (bool, error) {
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		return false, err
+		log.Fatal(err)
+		return
 	}
 
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		return false, err
+		log.Fatal(err)
+		return
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -39,8 +45,14 @@ func (d *Docker) Check(url string) (bool, error) {
 		RootCAs:      caCertPool,
 	}
 	tlsConfig.BuildNameToCertificate()
-	transport := &http.Transport{TLSClientConfig: tlsConfig}
-	client := &http.Client{Transport: transport}
+	d.transport = &http.Transport{TLSClientConfig: tlsConfig}
+}
+
+var once sync.Once
+
+func (d *Docker) Check(url string) (bool, error) {
+	once.Do(d.setupTLS)
+	client := &http.Client{Transport: d.transport}
 
 	resp, err := client.Get(url + "/info")
 	if err != nil {
