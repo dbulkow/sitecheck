@@ -10,13 +10,15 @@ import (
 
 type Etcd struct{}
 
+type memb struct {
+	ClientURLs []string `json:"clientURLs"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	PeerURLs   []string `json:"peerURLs"`
+}
+
 type members struct {
-	Members []struct {
-		ClientURLs []string `json:"clientURLs"`
-		ID         string   `json:"id"`
-		Name       string   `json:"name"`
-		PeerURLs   []string `json:"peerURLs"`
-	} `json:"members"`
+	Members []memb `json:"members"`
 }
 
 // Read all members of an etcd cluster
