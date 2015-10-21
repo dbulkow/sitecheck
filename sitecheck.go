@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"text/template"
@@ -89,7 +90,16 @@ func init() {
 }
 
 func main() {
+	var port = flag.String("http", "", "HTTP service address (.e.g. :8080)")
+
+	flag.Parse()
+
+	if *port == "" {
+		flag.Usage()
+		return
+	}
+
 	http.HandleFunc("/", statusHandler)
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(*port, nil))
 }
