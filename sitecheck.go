@@ -79,14 +79,16 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func main() {
+func init() {
 	check = map[string]Status{
 		"website":  new(Website),
 		"etcd":     new(Etcd),
 		"docker":   new(Docker),
 		"registry": new(Registry),
 	}
+}
 
+func main() {
 	http.HandleFunc("/", statusHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
