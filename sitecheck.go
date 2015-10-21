@@ -27,10 +27,10 @@ type Status interface {
 
 var check map[string]Status
 
-func readConfig() ([]status, error) {
+func readConfig(conf string) ([]status, error) {
 	var config sites
 
-	_, err := toml.DecodeFile("sitecheck.conf", &config)
+	_, err := toml.DecodeFile(conf, &config)
 	if err != nil {
 		return nil, err
 	}
@@ -38,28 +38,13 @@ func readConfig() ([]status, error) {
 	return config.Service, nil
 }
 
-func statusHandler(w http.ResponseWriter, r *http.Request) {
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	hosts, err := net.LookupAddr(host)
-	if err != nil {
-		log.Println("request from", r.RemoteAddr)
-	} else {
-		log.Println("request from", hosts)
-	}
-
-	status, err := readConfig()
-	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
-
+func checkStatus(status []status) {
 	for i, s := range status {
 		status[i].Status = "offline"
 
 		ck, ok := check[s.Type]
 		if ok == false {
-			log.Println(s.Type, s.URL, err)
+			log.Println(s.Type, s.URL)
 			continue
 		}
 
@@ -73,15 +58,36 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 			status[i].Status = "online"
 		}
 	}
+}
 
-	t, err := template.ParseFiles("status.html")
+func sendStatus(w http.ResponseWriter, status []status, file string) error {
+	t, err := template.ParseFiles(file)
+	if err != nil {
+		return err
+	}
+
+	err = t.Execute(w, status)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func statusHandler(w http.ResponseWriter, r *http.Request) {
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	log.Println("request from", host)
+
+	status, err := readConfig("sitecheck.conf")
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		log.Println(err)
 		return
 	}
 
-	err = t.Execute(w, status)
+	checkStatus(status)
+
+	err = sendStatus(w, status, "status.html")
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		log.Println(err)
