@@ -17,7 +17,7 @@ type Docker struct {
 func (d *Docker) setupTLS() {
 	home := os.Getenv("HOME")
 	if home == "" {
-		log.Fatal("HOME environment not configured")
+		log.Println("HOME environment not configured")
 		return
 	}
 
@@ -27,13 +27,13 @@ func (d *Docker) setupTLS() {
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return
 	}
 
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return
 	}
 
@@ -63,11 +63,8 @@ func (d *Docker) Check(url string) (bool, error) {
 	if resp.StatusCode != 200 {
 		return false, nil
 	}
-	/*
-		body, err := ioutil.ReadAll(resp.Body)
-		if err == nil {
-			log.Println(url+"/info", string(body))
-		}
-	*/
+
+	ioutil.ReadAll(resp.Body)
+
 	return true, nil
 }
