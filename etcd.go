@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -28,6 +29,10 @@ func etcdMembers(url string) (error, *members) {
 		return err, nil
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return errors.New("unsuccesful http status code"), nil
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
