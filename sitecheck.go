@@ -38,35 +38,47 @@ func readConfig(conf string) ([]status, error) {
 	return config.Service, nil
 }
 
-func checkStatus(status []status) {
-	for i, s := range status {
-		status[i].Status = "offline"
+func checkStatus(site_status []status) {
+	count := 0
+	c := make(chan int)
+
+	for i, s := range site_status {
+		site_status[i].Status = "offline"
 
 		ck, ok := check[s.Type]
 		if ok == false {
-			log.Println(s.Type, s.URL)
+			log.Println(s.Type, s.URL, "unknown type")
 			continue
 		}
 
-		healthy, err := ck.Check(s.URL)
-		if err != nil {
-			log.Println(s.Type, s.URL, err)
-			continue
-		}
+		count++
 
-		if healthy {
-			status[i].Status = "online"
-		}
+		go func(site status, i int) {
+			healthy, err := ck.Check(site.URL)
+			if err == nil && healthy {
+				site_status[i].Status = "online"
+			}
+
+			if err != nil {
+				log.Println(site.Type, site.URL, err)
+			}
+
+			c <- i
+		}(s, i)
+	}
+
+	for i := 0; i < count; i++ {
+		<-c
 	}
 }
 
-func sendStatus(w http.ResponseWriter, status []status, file string) error {
+func sendStatus(w http.ResponseWriter, site_status []status, file string) error {
 	t, err := template.ParseFiles(file)
 	if err != nil {
 		return err
 	}
 
-	err = t.Execute(w, status)
+	err = t.Execute(w, site_status)
 	if err != nil {
 		return err
 	}
@@ -78,16 +90,16 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	log.Println("request from", host)
 
-	status, err := readConfig("sitecheck.conf")
+	site_status, err := readConfig("sitecheck.conf")
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		log.Println(err)
 		return
 	}
 
-	checkStatus(status)
+	checkStatus(site_status)
 
-	err = sendStatus(w, status, "status.html")
+	err = sendStatus(w, site_status, "status.html")
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		log.Println(err)
