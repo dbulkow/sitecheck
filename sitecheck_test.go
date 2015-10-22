@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 
 func TestSendStatus(t *testing.T) {
 	status := []status{{
-		Name:   "SiteCheck",
+		Name:   "SiteCheckTest",
 		Type:   "website",
 		Status: "online",
 		URL:    "http://sitecheck.com",
@@ -66,7 +67,7 @@ func TestSendStatus(t *testing.T) {
 
 			switch state {
 			case FindName:
-				if tok.Data != "SiteCheck" {
+				if tok.Data != "SiteCheckTest" {
 					t.Fatal("Incorrect Name in response", tok.Data)
 				}
 				state = FindURL
@@ -80,33 +81,116 @@ func TestSendStatus(t *testing.T) {
 	}
 }
 
+func TestSendStatusParseFiles(t *testing.T) {
+	err := sendStatus(nil, nil, "mumble")
+	if err == nil {
+		t.Error("expected sendStatus to return an error")
+	}
+}
+
 func testSimpleResponder(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "hello, client", r.URL)
 }
 
-func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWriter, *http.Request)) {
-	ts := httptest.NewServer(http.HandlerFunc(handler))
-	defer ts.Close()
+func testBadResponder(w http.ResponseWriter, r *http.Request) {
+	http.NotFound(w, r)
+}
+
+func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWriter, *http.Request), checker func(*testing.T, []status)) {
+	var ts *httptest.Server
+
+	if handler != nil {
+		ts = httptest.NewServer(http.HandlerFunc(handler))
+		defer ts.Close()
+	} else {
+		ts = &httptest.Server{URL: "http://127.0.0.1:55555"}
+	}
 
 	status := []status{{
-		Name: "SiteCheck",
+		Name: "SiteCheckTest",
 		Type: sitetype,
 		URL:  ts.URL,
 	}}
 
 	checkStatus(status)
 
+	checker(t, status)
+}
+
+func TestCheckMany(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(testSimpleResponder))
+	defer ts.Close()
+
+	status := []status{
+		{
+			Name: "SiteCheckTest",
+			Type: "website",
+			URL:  ts.URL,
+		},
+		{
+			Name: "SiteCheckTest2",
+			Type: "registry",
+			URL:  ts.URL,
+		},
+		{
+			Name: "SiteCheckTest3",
+			Type: "registry",
+			URL:  ts.URL,
+		},
+		{
+			Name: "SiteCheckTest4",
+			Type: "registry",
+			URL:  ts.URL,
+		},
+	}
+
+	checkStatus(status)
+
+	for i := range status {
+		if status[i].Status != "online" {
+			t.Errorf("Status[%d] \"%s\"incorrect status\n", i, status[i].Name)
+		}
+	}
+}
+
+func successCheck(t *testing.T, status []status) {
 	if status[0].Status != "online" {
-		t.Error("Status != online")
+		t.Fatal("Status != online")
+	}
+}
+
+func failCheck(t *testing.T, status []status) {
+	if status[0].Status != "offline" {
+		t.Fatal("Status != offline")
 	}
 }
 
 func TestCheckStatusWebsite(t *testing.T) {
-	testCheckStatus(t, "website", testSimpleResponder)
+	testCheckStatus(t, "website", testSimpleResponder, successCheck)
+}
+
+func TestCheckStatusWebsiteBad(t *testing.T) {
+	testCheckStatus(t, "website", testBadResponder, failCheck)
+}
+
+func TestCheckStatusWebsiteMissing(t *testing.T) {
+	testCheckStatus(t, "website", nil, failCheck)
 }
 
 func TestCheckStatusRegistry(t *testing.T) {
-	testCheckStatus(t, "registry", testSimpleResponder)
+	testCheckStatus(t, "registry", testSimpleResponder, successCheck)
+}
+
+func TestCheckStatusRegistryBad(t *testing.T) {
+	testCheckStatus(t, "registry", testBadResponder, failCheck)
+}
+
+func TestCheckStatusRegistryMissing(t *testing.T) {
+	testCheckStatus(t, "registry", nil, failCheck)
+}
+
+func TestCheckUnknownType(t *testing.T) {
+	testCheckStatus(t, "fumble", nil, failCheck)
 }
 
 func TestCheckStatusEtcd(t *testing.T) {
@@ -140,11 +224,48 @@ func TestCheckStatusEtcd(t *testing.T) {
 		fmt.Fprintln(w, "hello there etcd user")
 	}
 
-	testCheckStatus(t, "etcd", f)
+	testCheckStatus(t, "etcd", f, successCheck)
+}
+
+func TestCheckStatusEtcdBad(t *testing.T) {
+	testCheckStatus(t, "etcd", testSimpleResponder, failCheck)
+}
+
+func TestCheckStatusEtcdBad2(t *testing.T) {
+	testCheckStatus(t, "etcd", testBadResponder, failCheck)
+}
+
+func TestCheckStatusEtcdMissing(t *testing.T) {
+	testCheckStatus(t, "etcd", nil, failCheck)
+}
+
+func TestCheckStatusEtcdBadHealth(t *testing.T) {
+	var f func(http.ResponseWriter, *http.Request)
+	f = func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.String() {
+		case "/v2/members":
+			m1 := []memb{{
+				ClientURLs: []string{"http://" + r.Host},
+				ID:         "fumble",
+				Name:       "newstuff",
+				PeerURLs:   []string{"http://" + r.Host},
+			}}
+			m := &members{Members: m1}
+			b, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal("Marshal failed")
+			}
+			fmt.Fprintf(w, string(b))
+			return
+		}
+		fmt.Fprintln(w, "hello there etcd user")
+	}
+
+	testCheckStatus(t, "etcd", f, failCheck)
 }
 
 func TestCheckStatusDocker(t *testing.T) {
-	t.Skip("Need to fix test to share certs/keys")
+	t.Skip("Need to fix test to share certs/keys with docker module")
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "hello docker guy", r.URL)
@@ -152,19 +273,38 @@ func TestCheckStatusDocker(t *testing.T) {
 	defer ts.Close()
 
 	status := []status{{
-		Name: "SiteCheck",
+		Name: "SiteCheckTest",
 		Type: "docker",
 		URL:  ts.URL,
 	}}
 
 	checkStatus(status)
 
-	if status[0].Status != "online" {
-		t.Error("Status != online")
+	successCheck(t, status)
+}
+
+func TestDockerMissing(t *testing.T) {
+	testCheckStatus(t, "docker", nil, failCheck)
+}
+
+func TestDockerBad(t *testing.T) {
+	testCheckStatus(t, "docker", testBadResponder, failCheck)
+}
+
+func TestDockerHOME(t *testing.T) {
+	os.Setenv("HOME", "")
+	d := &Docker{}
+	d.setupTLS()
+}
+
+func TestReadConfig(t *testing.T) {
+	_, err := readConfig("mumble")
+	if err == nil {
+		t.Error("expected readConfig to fail")
 	}
 }
 
-func TestSingle(t *testing.T) {
+func TestSingleRealWorld(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
@@ -177,18 +317,19 @@ func TestSingle(t *testing.T) {
 	}
 }
 
-func TestForLeaks(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
-	req, _ := http.NewRequest("GET", "", nil)
-	req.RemoteAddr = "sitecheck_test:"
-	for i := 0; i < 1000000; i++ {
-		w := httptest.NewRecorder()
-		statusHandler(w, req)
-		if w.Code != http.StatusOK {
-			t.Errorf("Home page didn't return %v", http.StatusOK)
-		}
-		time.Sleep(time.Second)
+func TestCheckStatusDockerRealWorld(t *testing.T) {
+	t.Skip("move along")
+	status := []status{{
+		Name: "SiteCheckTest",
+		Type: "docker",
+		URL:  "https://fumble.foo.com:2376",
+	}}
+
+	for i := 0; i < 100000; i++ {
+		checkStatus(status)
+
+		successCheck(t, status)
+
+		time.Sleep(time.Millisecond * 10)
 	}
 }
