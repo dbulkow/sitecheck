@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -17,6 +18,8 @@ func (w *Registry) Check(url string) (bool, error) {
 	if resp.StatusCode != 200 {
 		return false, errors.New("Bad status")
 	}
+
+	ioutil.ReadAll(resp.Body)
 
 	return true, nil
 }
