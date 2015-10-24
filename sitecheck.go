@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"text/template"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -86,18 +87,27 @@ func sendStatus(w http.ResponseWriter, site_status []status, file string) error 
 	return nil
 }
 
+var site_status []status
+var next_status time.Time
+
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	log.Println("request from", host)
 
-	site_status, err := readConfig("sitecheck.conf")
-	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
+	var err error
 
-	checkStatus(site_status)
+	if next_status.Before(time.Now()) {
+		site_status, err = readConfig("sitecheck.conf")
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			log.Println(err)
+			return
+		}
+
+		checkStatus(site_status)
+
+		next_status = time.Now().Add(time.Second * 30)
+	}
 
 	err = sendStatus(w, site_status, "status.html")
 	if err != nil {
