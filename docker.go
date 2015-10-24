@@ -51,10 +51,17 @@ func (d *Docker) setupTLS() {
 var once sync.Once
 
 func (d *Docker) Check(url string) (bool, error) {
-	once.Do(d.setupTLS)
-	client := &http.Client{Transport: d.transport}
+	var err error
+	var resp *http.Response
 
-	resp, err := client.Get(url + "/info")
+	once.Do(d.setupTLS)
+	if d.transport != nil {
+		client := &http.Client{Transport: d.transport}
+
+		resp, err = client.Get(url + "/info")
+	} else {
+		resp, err = http.Get(url + "/info")
+	}
 	if err != nil {
 		return false, err
 	}
