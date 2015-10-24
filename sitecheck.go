@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync"
 	"text/template"
 	"time"
 
@@ -89,8 +90,12 @@ func sendStatus(w http.ResponseWriter, site_status []status, file string) error 
 
 var site_status []status
 var next_status time.Time
+var lock sync.Mutex
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	log.Println("request from", host)
 
