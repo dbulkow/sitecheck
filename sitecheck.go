@@ -132,7 +132,7 @@ func init() {
 }
 
 func main() {
-	var port = flag.String("http", "", "HTTP service address (.e.g. :8080)")
+	var port = flag.String("http", "", "HTTP service address (.e.g. 8080)")
 
 	flag.Parse()
 
@@ -143,5 +143,5 @@ func main() {
 
 	http.HandleFunc("/", statusHandler)
 
-	log.Fatal(http.ListenAndServe(*port, nil))
+	log.Fatal(http.ListenAndServe(":"+*port, nil))
 }
