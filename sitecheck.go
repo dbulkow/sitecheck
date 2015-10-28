@@ -99,10 +99,9 @@ func (s *server) checkStatus() {
 }
 
 func (s *server) updateStatus() error {
-	/*
-		s.Lock()
-		defer s.Unlock()
-	*/
+	s.Lock()
+	defer s.Unlock()
+
 	if s.next_status.Before(time.Now()) {
 		err := s.readConfig()
 		if err != nil {
