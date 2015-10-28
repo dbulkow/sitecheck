@@ -3,13 +3,13 @@ package main
 import (
 	"bytes"
 	"flag"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/BurntSushi/toml"
