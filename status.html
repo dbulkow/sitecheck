@@ -21,7 +21,7 @@
 
   <table>
 
-    {{range .}}
+    {{range .Status}}
     <tr>
       <td>{{.Name}}</td>
       <td>{{ if eq .Type "website" }} <a href="{{.URL}}">{{.URL}}</a> {{ else }} {{.URL}} {{ end }}</td>
@@ -30,6 +30,8 @@
     {{end}}
 
   </table>
+
+<p>Generated {{.DateTime}}</p>
 
 </body>
 </html>
