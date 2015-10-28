@@ -1,13 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"golang.org/x/net/html"
 )
@@ -21,7 +22,14 @@ func TestSendStatus(t *testing.T) {
 	}}
 
 	w := httptest.NewRecorder()
-	sendStatus(w, status, "status.html")
+	s := &server{
+		htmlfile:    "status.html",
+		site_status: status,
+	}
+	s.initialize()
+	s.checkStatus()
+	b := bytes.NewBuffer(s.html)
+	io.Copy(w, b)
 
 	const (
 		FindName = iota
@@ -82,7 +90,10 @@ func TestSendStatus(t *testing.T) {
 }
 
 func TestSendStatusParseFiles(t *testing.T) {
-	err := sendStatus(nil, nil, "mumble")
+	s := &server{
+		htmlfile: "mumble",
+	}
+	err := s.initialize()
 	if err == nil {
 		t.Error("expected sendStatus to return an error")
 	}
@@ -112,7 +123,9 @@ func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWr
 		URL:  ts.URL,
 	}}
 
-	checkStatus(status)
+	s := &server{site_status: status}
+
+	s.checkStatus()
 
 	checker(t, status)
 }
@@ -144,7 +157,9 @@ func TestCheckMany(t *testing.T) {
 		},
 	}
 
-	checkStatus(status)
+	s := &server{site_status: status}
+
+	s.checkStatus()
 
 	for i := range status {
 		if status[i].Status != "online" {
@@ -278,7 +293,9 @@ func TestCheckStatusDocker(t *testing.T) {
 		URL:  ts.URL,
 	}}
 
-	checkStatus(status)
+	s := &server{site_status: status}
+
+	s.checkStatus()
 
 	successCheck(t, status)
 }
@@ -298,7 +315,8 @@ func TestDockerHOME(t *testing.T) {
 }
 
 func TestReadConfig(t *testing.T) {
-	_, err := readConfig("mumble")
+	s := &server{configfile: "mumble"}
+	err := s.readConfig()
 	if err == nil {
 		t.Error("expected readConfig to fail")
 	}
@@ -311,7 +329,15 @@ func TestSingleRealWorld(t *testing.T) {
 	req, _ := http.NewRequest("GET", "", nil)
 	req.RemoteAddr = "sitecheck_test_single:"
 	w := httptest.NewRecorder()
-	statusHandler(w, req)
+	s := &server{
+		configfile: "sitecheck.conf",
+		htmlfile:   "status.html",
+	}
+	err := s.initialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.statusHandler(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("Home page didn't return %v", http.StatusOK)
 	}
@@ -325,11 +351,13 @@ func TestCheckStatusDockerRealWorld(t *testing.T) {
 		URL:  "https://fumble.foo.com:2376",
 	}}
 
-	for i := 0; i < 100000; i++ {
-		checkStatus(status)
+	for i := 0; i < 1000; i++ {
+		s := &server{site_status: status}
+
+		s.checkStatus()
 
 		successCheck(t, status)
 
-		time.Sleep(time.Millisecond * 10)
+		//time.Sleep(time.Millisecond * 10)
 	}
 }
