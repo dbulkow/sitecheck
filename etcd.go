@@ -66,6 +66,11 @@ func (e *Etcd) Check(url string) (bool, error) {
 				continue
 			}
 
+			if resp.StatusCode != 200 {
+				log.Printf("/health not found, member %s on %s\n", m.ID, url)
+				continue
+			}
+
 			result := struct{ Health string }{}
 			d := json.NewDecoder(resp.Body)
 			err = d.Decode(&result)
