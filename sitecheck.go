@@ -41,8 +41,7 @@ func readConfig(conf string) ([]status, error) {
 }
 
 func checkStatus(site_status []status) {
-	count := 0
-	c := make(chan int)
+	var wg sync.WaitGroup
 
 	for i, s := range site_status {
 		site_status[i].Status = "offline"
@@ -53,9 +52,11 @@ func checkStatus(site_status []status) {
 			continue
 		}
 
-		count++
+		wg.Add(1)
 
 		go func(site status, i int) {
+			defer wg.Done()
+
 			healthy, err := ck.Check(site.URL)
 			if err == nil && healthy {
 				site_status[i].Status = "online"
@@ -64,14 +65,10 @@ func checkStatus(site_status []status) {
 			if err != nil {
 				log.Println(site.Type, site.URL, err)
 			}
-
-			c <- i
 		}(s, i)
 	}
 
-	for i := 0; i < count; i++ {
-		<-c
-	}
+	wg.Wait()
 }
 
 func sendStatus(w http.ResponseWriter, site_status []status, file string) error {
