@@ -159,7 +159,10 @@ func init() {
 }
 
 func main() {
-	var port = flag.String("port", "", "HTTP service address (.e.g. 8080)")
+	var (
+		port     = flag.String("port", "", "HTTP service address (.e.g. 8080)")
+		conffile = flag.String("conf", "sitecheck.conf", "Configuration file")
+	)
 
 	flag.Parse()
 
@@ -169,7 +172,7 @@ func main() {
 	}
 
 	s := &server{
-		configfile: "sitecheck.conf",
+		configfile: *conffile,
 		htmlfile:   "status.html",
 	}
 	err := s.initialize()
