@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -242,6 +243,113 @@ func TestCheckStatusEtcd(t *testing.T) {
 	testCheckStatus(t, "etcd", f, successCheck)
 }
 
+func TestCheckStatusEtcdNoHealth(t *testing.T) {
+	var f func(http.ResponseWriter, *http.Request)
+	f = func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.String() {
+		case "/v2/members":
+			m1 := []memb{{
+				ClientURLs: []string{"http://" + r.Host},
+				ID:         "fumble",
+				Name:       "newstuff",
+				PeerURLs:   []string{"http://" + r.Host},
+			}}
+			m := &members{Members: m1}
+			b, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal("Marshal failed")
+			}
+			fmt.Fprintf(w, string(b))
+			return
+		case "/health":
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Fprintln(w, "hello there etcd user")
+	}
+
+	testCheckStatus(t, "etcd", f, failCheck)
+}
+
+func TestCheckStatusEtcdPoorHealth(t *testing.T) {
+	var f func(http.ResponseWriter, *http.Request)
+	f = func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.String() {
+		case "/v2/members":
+			m1 := []memb{{
+				ClientURLs: []string{"http://" + r.Host},
+				ID:         "fumble",
+				Name:       "newstuff",
+				PeerURLs:   []string{"http://" + r.Host},
+			}}
+			m := &members{Members: m1}
+			b, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal("Marshal failed")
+			}
+			fmt.Fprintf(w, string(b))
+			return
+		case "/health":
+			b, err := json.Marshal(struct {
+				Health string `json:"health"`
+			}{Health: "false"})
+			if err != nil {
+				t.Fatal("Marshal failed")
+			}
+			fmt.Fprint(w, string(b))
+			return
+		}
+		fmt.Fprintln(w, "hello there etcd user")
+	}
+
+	testCheckStatus(t, "etcd", f, failCheck)
+}
+
+func TestCheckStatusEtcdNoHealthNoConnect(t *testing.T) {
+	t.Skip("this test isn't working - hangs")
+
+	var ts *httptest.Server
+
+	var f func(http.ResponseWriter, *http.Request)
+	f = func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.String() {
+		case "/v2/members":
+			m1 := []memb{{
+				ClientURLs: []string{"http://" + r.Host},
+				ID:         "fumble",
+				Name:       "newstuff",
+				PeerURLs:   []string{"http://" + r.Host},
+			}}
+			m := &members{Members: m1}
+			b, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal("Marshal failed")
+			}
+			fmt.Fprintf(w, string(b))
+			return
+		case "/health":
+			ts.Close()
+			return
+		}
+		fmt.Fprintln(w, "hello there etcd user")
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(f))
+	defer ts.Close()
+
+	status := []status{{
+		Name: "SiteCheckTest",
+		Type: "etcd",
+		URL:  ts.URL,
+	}}
+
+	s := &server{site_status: status}
+
+	s.checkStatus()
+
+	failCheck(t, status)
+}
+
 func TestCheckStatusEtcdBad(t *testing.T) {
 	testCheckStatus(t, "etcd", testSimpleResponder, failCheck)
 }
@@ -314,11 +422,25 @@ func TestDockerHOME(t *testing.T) {
 	d.setupTLS()
 }
 
+func TestDockerNoCertFile(t *testing.T) {
+	os.Setenv("HOME", "/tmp")
+	d := &Docker{}
+	d.setupTLS()
+}
+
 func TestReadConfig(t *testing.T) {
 	s := &server{configfile: "mumble"}
 	err := s.readConfig()
 	if err == nil {
 		t.Error("expected readConfig to fail")
+	}
+}
+
+func TestUpdateStatusBadConfig(t *testing.T) {
+	s := &server{configfile: "mumble"}
+	err := s.updateStatus()
+	if err == nil {
+		t.Error("expected updateStatus to fail")
 	}
 }
 
@@ -359,5 +481,19 @@ func TestCheckStatusDockerRealWorld(t *testing.T) {
 		successCheck(t, status)
 
 		//time.Sleep(time.Millisecond * 10)
+	}
+}
+
+func TestUpdateStatusBadExecute(t *testing.T) {
+	var err error
+
+	s := &server{configfile: "sitecheck.conf"}
+	s.templ, err = template.New("test").Parse("{{.Hello}}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.updateStatus()
+	if err == nil {
+		t.Error("expected a failure to execute the template")
 	}
 }
