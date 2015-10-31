@@ -54,7 +54,7 @@ func TestCheckStatusDockerRealWorld(t *testing.T) {
 	status := []status{{
 		Name: "SiteCheckTest",
 		Type: "docker",
-		URL:  "https://eddoria.mno.stratus.com:2376",
+		URL:  "https://fumble.foo.com:2376",
 	}}
 
 	for i := 0; i < 1000; i++ {
