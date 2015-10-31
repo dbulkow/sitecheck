@@ -2,17 +2,58 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"golang.org/x/net/html"
 )
+
+func testSimpleResponder(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "hello, client", r.URL)
+}
+
+func testBadResponder(w http.ResponseWriter, r *http.Request) {
+	http.NotFound(w, r)
+}
+
+func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWriter, *http.Request), checker func(*testing.T, []status)) {
+	var ts *httptest.Server
+
+	if handler != nil {
+		ts = httptest.NewServer(http.HandlerFunc(handler))
+		defer ts.Close()
+	} else {
+		ts = &httptest.Server{URL: "http://127.0.0.1:55555"}
+	}
+
+	status := []status{{
+		Name: "SiteCheckTest",
+		Type: sitetype,
+		URL:  ts.URL,
+	}}
+
+	s := &server{site_status: status}
+
+	s.checkStatus()
+
+	checker(t, status)
+}
+
+func successCheck(t *testing.T, status []status) {
+	if status[0].Status != "online" {
+		t.Fatal("Status != online")
+	}
+}
+
+func failCheck(t *testing.T, status []status) {
+	if status[0].Status == "online" {
+		t.Fatal("Status == online, expected another state")
+	}
+}
 
 func TestSendStatus(t *testing.T) {
 	status := []status{{
@@ -100,37 +141,6 @@ func TestSendStatusParseFiles(t *testing.T) {
 	}
 }
 
-func testSimpleResponder(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "hello, client", r.URL)
-}
-
-func testBadResponder(w http.ResponseWriter, r *http.Request) {
-	http.NotFound(w, r)
-}
-
-func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWriter, *http.Request), checker func(*testing.T, []status)) {
-	var ts *httptest.Server
-
-	if handler != nil {
-		ts = httptest.NewServer(http.HandlerFunc(handler))
-		defer ts.Close()
-	} else {
-		ts = &httptest.Server{URL: "http://127.0.0.1:55555"}
-	}
-
-	status := []status{{
-		Name: "SiteCheckTest",
-		Type: sitetype,
-		URL:  ts.URL,
-	}}
-
-	s := &server{site_status: status}
-
-	s.checkStatus()
-
-	checker(t, status)
-}
-
 func TestCheckMany(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(testSimpleResponder))
 	defer ts.Close()
@@ -169,263 +179,8 @@ func TestCheckMany(t *testing.T) {
 	}
 }
 
-func successCheck(t *testing.T, status []status) {
-	if status[0].Status != "online" {
-		t.Fatal("Status != online")
-	}
-}
-
-func failCheck(t *testing.T, status []status) {
-	if status[0].Status != "offline" {
-		t.Fatal("Status != offline")
-	}
-}
-
-func TestCheckStatusWebsite(t *testing.T) {
-	testCheckStatus(t, "website", testSimpleResponder, successCheck)
-}
-
-func TestCheckStatusWebsiteBad(t *testing.T) {
-	testCheckStatus(t, "website", testBadResponder, failCheck)
-}
-
-func TestCheckStatusWebsiteMissing(t *testing.T) {
-	testCheckStatus(t, "website", nil, failCheck)
-}
-
-func TestCheckStatusRegistry(t *testing.T) {
-	testCheckStatus(t, "registry", testSimpleResponder, successCheck)
-}
-
-func TestCheckStatusRegistryBad(t *testing.T) {
-	testCheckStatus(t, "registry", testBadResponder, failCheck)
-}
-
-func TestCheckStatusRegistryMissing(t *testing.T) {
-	testCheckStatus(t, "registry", nil, failCheck)
-}
-
 func TestCheckUnknownType(t *testing.T) {
 	testCheckStatus(t, "fumble", nil, failCheck)
-}
-
-func TestCheckStatusEtcd(t *testing.T) {
-	var f func(http.ResponseWriter, *http.Request)
-	f = func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.String() {
-		case "/v2/members":
-			m1 := []memb{{
-				ClientURLs: []string{"http://" + r.Host},
-				ID:         "fumble",
-				Name:       "newstuff",
-				PeerURLs:   []string{"http://" + r.Host},
-			}}
-			m := &members{Members: m1}
-			b, err := json.Marshal(m)
-			if err != nil {
-				t.Fatal("Marshal failed")
-			}
-			fmt.Fprintf(w, string(b))
-			return
-		case "/health":
-			b, err := json.Marshal(struct {
-				Health string `json:"health"`
-			}{Health: "true"})
-			if err != nil {
-				t.Fatal("Marshal failed")
-			}
-			fmt.Fprint(w, string(b))
-			return
-		}
-		fmt.Fprintln(w, "hello there etcd user")
-	}
-
-	testCheckStatus(t, "etcd", f, successCheck)
-}
-
-func TestCheckStatusEtcdNoHealth(t *testing.T) {
-	var f func(http.ResponseWriter, *http.Request)
-	f = func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.String() {
-		case "/v2/members":
-			m1 := []memb{{
-				ClientURLs: []string{"http://" + r.Host},
-				ID:         "fumble",
-				Name:       "newstuff",
-				PeerURLs:   []string{"http://" + r.Host},
-			}}
-			m := &members{Members: m1}
-			b, err := json.Marshal(m)
-			if err != nil {
-				t.Fatal("Marshal failed")
-			}
-			fmt.Fprintf(w, string(b))
-			return
-		case "/health":
-			http.NotFound(w, r)
-			return
-		}
-		fmt.Fprintln(w, "hello there etcd user")
-	}
-
-	testCheckStatus(t, "etcd", f, failCheck)
-}
-
-func TestCheckStatusEtcdPoorHealth(t *testing.T) {
-	var f func(http.ResponseWriter, *http.Request)
-	f = func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.String() {
-		case "/v2/members":
-			m1 := []memb{{
-				ClientURLs: []string{"http://" + r.Host},
-				ID:         "fumble",
-				Name:       "newstuff",
-				PeerURLs:   []string{"http://" + r.Host},
-			}}
-			m := &members{Members: m1}
-			b, err := json.Marshal(m)
-			if err != nil {
-				t.Fatal("Marshal failed")
-			}
-			fmt.Fprintf(w, string(b))
-			return
-		case "/health":
-			b, err := json.Marshal(struct {
-				Health string `json:"health"`
-			}{Health: "false"})
-			if err != nil {
-				t.Fatal("Marshal failed")
-			}
-			fmt.Fprint(w, string(b))
-			return
-		}
-		fmt.Fprintln(w, "hello there etcd user")
-	}
-
-	testCheckStatus(t, "etcd", f, failCheck)
-}
-
-func TestCheckStatusEtcdNoHealthNoConnect(t *testing.T) {
-	t.Skip("this test isn't working - hangs")
-
-	var ts *httptest.Server
-
-	var f func(http.ResponseWriter, *http.Request)
-	f = func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.String() {
-		case "/v2/members":
-			m1 := []memb{{
-				ClientURLs: []string{"http://" + r.Host},
-				ID:         "fumble",
-				Name:       "newstuff",
-				PeerURLs:   []string{"http://" + r.Host},
-			}}
-			m := &members{Members: m1}
-			b, err := json.Marshal(m)
-			if err != nil {
-				t.Fatal("Marshal failed")
-			}
-			fmt.Fprintf(w, string(b))
-			return
-		case "/health":
-			ts.Close()
-			return
-		}
-		fmt.Fprintln(w, "hello there etcd user")
-	}
-
-	ts = httptest.NewServer(http.HandlerFunc(f))
-	defer ts.Close()
-
-	status := []status{{
-		Name: "SiteCheckTest",
-		Type: "etcd",
-		URL:  ts.URL,
-	}}
-
-	s := &server{site_status: status}
-
-	s.checkStatus()
-
-	failCheck(t, status)
-}
-
-func TestCheckStatusEtcdBad(t *testing.T) {
-	testCheckStatus(t, "etcd", testSimpleResponder, failCheck)
-}
-
-func TestCheckStatusEtcdBad2(t *testing.T) {
-	testCheckStatus(t, "etcd", testBadResponder, failCheck)
-}
-
-func TestCheckStatusEtcdMissing(t *testing.T) {
-	testCheckStatus(t, "etcd", nil, failCheck)
-}
-
-func TestCheckStatusEtcdBadHealth(t *testing.T) {
-	var f func(http.ResponseWriter, *http.Request)
-	f = func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.String() {
-		case "/v2/members":
-			m1 := []memb{{
-				ClientURLs: []string{"http://" + r.Host},
-				ID:         "fumble",
-				Name:       "newstuff",
-				PeerURLs:   []string{"http://" + r.Host},
-			}}
-			m := &members{Members: m1}
-			b, err := json.Marshal(m)
-			if err != nil {
-				t.Fatal("Marshal failed")
-			}
-			fmt.Fprintf(w, string(b))
-			return
-		}
-		fmt.Fprintln(w, "hello there etcd user")
-	}
-
-	testCheckStatus(t, "etcd", f, failCheck)
-}
-
-func TestCheckStatusDocker(t *testing.T) {
-	t.Skip("Need to fix test to share certs/keys with docker module")
-
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "hello docker guy", r.URL)
-	}))
-	defer ts.Close()
-
-	status := []status{{
-		Name: "SiteCheckTest",
-		Type: "docker",
-		URL:  ts.URL,
-	}}
-
-	s := &server{site_status: status}
-
-	s.checkStatus()
-
-	successCheck(t, status)
-}
-
-func TestDockerMissing(t *testing.T) {
-	testCheckStatus(t, "docker", nil, failCheck)
-}
-
-func TestDockerBad(t *testing.T) {
-	testCheckStatus(t, "docker", testBadResponder, failCheck)
-}
-
-func TestDockerHOME(t *testing.T) {
-	os.Setenv("HOME", "")
-	d := &Docker{}
-	d.setupTLS()
-}
-
-func TestDockerNoCertFile(t *testing.T) {
-	os.Setenv("HOME", "/tmp")
-	d := &Docker{}
-	d.setupTLS()
 }
 
 func TestReadConfig(t *testing.T) {
@@ -437,8 +192,12 @@ func TestReadConfig(t *testing.T) {
 }
 
 func TestUpdateStatusBadConfig(t *testing.T) {
-	s := &server{configfile: "mumble"}
-	err := s.updateStatus()
+	s := &server{configfile: "mumble", htmlfile: "status.html"}
+	err := s.initialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.updateStatus()
 	if err == nil {
 		t.Error("expected updateStatus to fail")
 	}
@@ -462,25 +221,6 @@ func TestSingleRealWorld(t *testing.T) {
 	s.statusHandler(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("Home page didn't return %v", http.StatusOK)
-	}
-}
-
-func TestCheckStatusDockerRealWorld(t *testing.T) {
-	t.Skip("move along")
-	status := []status{{
-		Name: "SiteCheckTest",
-		Type: "docker",
-		URL:  "https://fumble.foo.com:2376",
-	}}
-
-	for i := 0; i < 1000; i++ {
-		s := &server{site_status: status}
-
-		s.checkStatus()
-
-		successCheck(t, status)
-
-		//time.Sleep(time.Millisecond * 10)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 
 type Docker struct {
 	transport *http.Transport
+	once      sync.Once
 }
 
 func (d *Docker) setupTLS() {
@@ -48,13 +49,11 @@ func (d *Docker) setupTLS() {
 	d.transport = &http.Transport{TLSClientConfig: tlsConfig}
 }
 
-var once sync.Once
-
 func (d *Docker) Check(url string) (bool, error) {
 	var err error
 	var resp *http.Response
 
-	once.Do(d.setupTLS)
+	d.once.Do(d.setupTLS)
 	if d.transport != nil {
 		client := &http.Client{Transport: d.transport}
 
