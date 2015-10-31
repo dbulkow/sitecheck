@@ -123,7 +123,7 @@ func (s *server) updateStatus() error {
 		s.checkStatus()
 
 		s.last_status = time.Now()
-		s.next_status = s.last_status.Add(time.Second * 30)
+		s.next_status = s.last_status.Add(time.Second * 5)
 	}
 
 	x := &struct {
