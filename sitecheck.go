@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -34,6 +35,7 @@ var check map[string]Status
 
 type server struct {
 	configfile  string
+	lastconfig  time.Time
 	htmlfile    string
 	templ       *template.Template
 	site_status []status
@@ -57,12 +59,26 @@ func (s *server) initialize() error {
 func (s *server) readConfig() error {
 	var config sites
 
-	_, err := toml.DecodeFile(s.configfile, &config)
+	fi, err := os.Stat(s.configfile)
 	if err != nil {
 		return err
 	}
 
+	if s.lastconfig.After(fi.ModTime()) {
+		return nil
+	}
+
+	_, err = toml.DecodeFile(s.configfile, &config)
+	if err != nil {
+		return err
+	}
+
+	s.lastconfig = time.Now()
 	s.site_status = config.Service
+
+	for i, _ := range s.site_status {
+		s.site_status[i].Status = "unknown"
+	}
 
 	return nil
 }
@@ -71,8 +87,6 @@ func (s *server) checkStatus() {
 	var wg sync.WaitGroup
 
 	for i, stat := range s.site_status {
-		s.site_status[i].Status = "offline"
-
 		ck, ok := check[stat.Type]
 		if ok == false {
 			log.Println(stat.Type, stat.URL, "unknown type")
