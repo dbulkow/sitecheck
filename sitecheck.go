@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -17,10 +19,10 @@ import (
 )
 
 type status struct {
-	Name   string `toml:"name"`
-	Type   string `toml:"type"`
-	Status string
-	URL    string `toml:"url"`
+	Name   string `json:"name" toml:"name"`
+	Type   string `json:"type" toml:"type"`
+	Status string `json:"status"`
+	URL    string `json:"url" toml:"url"`
 }
 
 type sites struct {
@@ -169,6 +171,33 @@ func (s *server) statusHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, b)
 }
 
+func (s *server) statusAPI(w http.ResponseWriter, r *http.Request) {
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	log.Println("api req from", host)
+
+	s.updateStatus()
+
+	w.Header().Set("Content-Type", "application/json")
+	b, err := json.MarshalIndent(s.site_status, "", "\t")
+	if err != nil {
+		h := &struct {
+			Code    int    `json:"code"`
+			Id      string `json:"id"`
+			Message string `json:"message"`
+			Detail  string `json:"detail"`
+		}{
+			Code:    http.StatusInternalServerError,
+			Id:      "internalerror",
+			Message: "internal error",
+			Detail:  "Unable to Marshal jobs list",
+		}
+		b, _ := json.MarshalIndent(h, "", "\t")
+		http.Error(w, string(b), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, string(b))
+}
+
 func init() {
 	check = map[string]Status{
 		"website":  new(Website),
@@ -201,5 +230,6 @@ func main() {
 	}
 
 	http.HandleFunc("/", s.statusHandler)
+	http.HandleFunc("/status", s.statusAPI)
 	log.Fatal(http.ListenAndServe(":"+*port, nil))
 }
