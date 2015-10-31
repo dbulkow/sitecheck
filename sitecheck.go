@@ -110,7 +110,7 @@ func (s *server) checkStatus() {
 	wg.Wait()
 }
 
-func (s *server) updateStatus() error {
+func (s *server) refresh() error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -126,6 +126,15 @@ func (s *server) updateStatus() error {
 		s.next_status = s.last_status.Add(time.Second * 5)
 	}
 
+	return nil
+}
+
+func (s *server) updateStatus() error {
+	err := s.refresh()
+	if err != nil {
+		return err
+	}
+
 	x := &struct {
 		Status   []status
 		DateTime string
@@ -136,7 +145,7 @@ func (s *server) updateStatus() error {
 
 	b := &bytes.Buffer{}
 
-	err := s.templ.Execute(b, x)
+	err = s.templ.Execute(b, x)
 	if err != nil {
 		return err
 	}
