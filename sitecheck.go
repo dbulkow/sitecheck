@@ -94,19 +94,17 @@ func (s *server) checkStatus() {
 		}
 
 		wg.Add(1)
-
-		go func(site status, i int) {
+		go func(idx int) {
 			defer wg.Done()
-
-			healthy, err := ck.Check(site.URL)
+			healthy, err := ck.Check(s.site_status[idx].URL)
 			if err == nil && healthy {
-				s.site_status[i].Status = "online"
+				s.site_status[idx].Status = "online"
+				return
 			}
 
-			if err != nil {
-				log.Println(site.Type, site.URL, err)
-			}
-		}(stat, i)
+			s.site_status[idx].Status = "offline"
+			log.Println(s.site_status[idx].Type, s.site_status[idx].URL, err)
+		}(i)
 	}
 
 	wg.Wait()
