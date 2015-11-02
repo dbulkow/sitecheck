@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 )
 
 type Docker struct {
@@ -55,7 +56,8 @@ func (d *Docker) Check(url string) (bool, error) {
 
 	d.once.Do(d.setupTLS)
 	if d.transport != nil {
-		client := &http.Client{Transport: d.transport}
+		timeout := time.Duration(30 * time.Second)
+		client := &http.Client{Transport: d.transport, Timeout: timeout}
 
 		resp, err = client.Get(url + "/info")
 	} else {
