@@ -174,7 +174,7 @@ func TestCheckMany(t *testing.T) {
 
 	for i := range status {
 		if status[i].Status != "online" {
-			t.Errorf("Status[%d] \"%s\"incorrect status\n", i, status[i].Name)
+			t.Errorf("Status[%d] \"%s\" incorrect status: \"%s\"\n", i, status[i].Name, status[i].Status)
 		}
 	}
 }
