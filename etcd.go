@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Etcd struct{}
@@ -23,8 +24,8 @@ type members struct {
 }
 
 // Read all members of an etcd cluster
-func etcdMembers(url string) (error, *members) {
-	resp, err := http.Get(url + "/v2/members")
+func etcdMembers(url string, client *http.Client) (error, *members) {
+	resp, err := client.Get(url + "/v2/members")
 	if err != nil {
 		return err, nil
 	}
@@ -51,16 +52,19 @@ func etcdMembers(url string) (error, *members) {
 
 // Iterate over all members looking for health
 func (e *Etcd) Check(url string) (bool, error) {
+	timeout := time.Duration(30 * time.Second)
+	client := &http.Client{Timeout: timeout}
+
 	health := false
 
-	err, members := etcdMembers(url)
+	err, members := etcdMembers(url, client)
 	if err != nil {
 		return health, err
 	}
 
 	for _, m := range members.Members {
 		for _, url := range m.ClientURLs {
-			resp, err := http.Get(url + "/health")
+			resp, err := client.Get(url + "/health")
 			if err != nil {
 				log.Printf("failed to check health of member %s on %s: %v\n", m.ID, url, err)
 				continue

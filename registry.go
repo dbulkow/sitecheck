@@ -4,12 +4,16 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 type Registry struct{}
 
 func (w *Registry) Check(url string) (bool, error) {
-	resp, err := http.Get(url + "/v2/")
+	timeout := time.Duration(20 * time.Second)
+	client := &http.Client{Timeout: timeout}
+
+	resp, err := client.Get(url + "/v2/")
 	if err != nil {
 		return false, err
 	}

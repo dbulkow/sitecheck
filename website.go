@@ -1,11 +1,17 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 type Website struct{}
 
 func (w *Website) Check(url string) (bool, error) {
-	resp, err := http.Get(url)
+	timeout := time.Duration(20 * time.Second)
+	client := &http.Client{Timeout: timeout}
+
+	resp, err := client.Get(url)
 	if err != nil {
 		return false, err
 	}

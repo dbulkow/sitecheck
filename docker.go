@@ -55,10 +55,12 @@ func (d *Docker) Check(url string) (bool, error) {
 	var resp *http.Response
 
 	d.once.Do(d.setupTLS)
-	if d.transport != nil {
-		timeout := time.Duration(30 * time.Second)
-		client := &http.Client{Transport: d.transport, Timeout: timeout}
 
+	timeout := time.Duration(20 * time.Second)
+	client := &http.Client{Timeout: timeout}
+
+	if d.transport != nil {
+		client.Transport = d.transport
 		resp, err = client.Get(url + "/info")
 	} else {
 		resp, err = http.Get(url + "/info")
