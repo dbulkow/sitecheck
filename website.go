@@ -7,11 +7,11 @@ import (
 
 type Website struct{}
 
-func (w *Website) Check(url string) (bool, error) {
-	timeout := time.Duration(20 * time.Second)
+func (w *Website) Check(site status) (bool, error) {
+	timeout := time.Duration(time.Duration(site.Timeout) * time.Second)
 	client := &http.Client{Timeout: timeout}
 
-	resp, err := client.Get(url)
+	resp, err := client.Get(site.URL)
 	if err != nil {
 		return false, err
 	}

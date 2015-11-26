@@ -9,11 +9,11 @@ import (
 
 type Registry struct{}
 
-func (w *Registry) Check(url string) (bool, error) {
-	timeout := time.Duration(20 * time.Second)
+func (w *Registry) Check(site status) (bool, error) {
+	timeout := time.Duration(time.Duration(site.Timeout) * time.Second)
 	client := &http.Client{Timeout: timeout}
 
-	resp, err := client.Get(url + "/v2/")
+	resp, err := client.Get(site.URL + "/v2/")
 	if err != nil {
 		return false, err
 	}

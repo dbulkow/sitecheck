@@ -19,10 +19,11 @@ import (
 )
 
 type status struct {
-	Name   string `json:"name" toml:"name"`
-	Type   string `json:"type" toml:"type"`
-	Status string `json:"status"`
-	URL    string `json:"url" toml:"url"`
+	Name    string `json:"name" toml:"name"`
+	Type    string `json:"type" toml:"type"`
+	Status  string `json:"status"`
+	URL     string `json:"url" toml:"url"`
+	Timeout int    `json:"timeout" toml:"timeout"`
 }
 
 type sites struct {
@@ -30,7 +31,7 @@ type sites struct {
 }
 
 type Status interface {
-	Check(url string) (bool, error)
+	Check(stat status) (bool, error)
 }
 
 var check map[string]Status
@@ -44,6 +45,7 @@ type server struct {
 	next_status time.Time
 	last_status time.Time
 	html        []byte
+	timeout     int
 	sync.Mutex
 }
 
@@ -80,6 +82,9 @@ func (s *server) readConfig() error {
 
 	for i, _ := range s.site_status {
 		s.site_status[i].Status = "unknown"
+		if s.site_status[i].Timeout == 0 {
+			s.site_status[i].Timeout = s.timeout
+		}
 	}
 
 	return nil
@@ -98,7 +103,7 @@ func (s *server) checkStatus() {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			healthy, err := ck.Check(s.site_status[idx].URL)
+			healthy, err := ck.Check(s.site_status[idx])
 			if err == nil && healthy {
 				s.site_status[idx].Status = "online"
 				return
@@ -212,6 +217,7 @@ func main() {
 	var (
 		port     = flag.String("port", "", "HTTP service address (.e.g. 8080)")
 		conffile = flag.String("conf", "sitecheck.conf", "Configuration file")
+		timeout  = flag.Int("timeout", 20, "default timeout")
 	)
 
 	flag.Parse()
@@ -224,6 +230,7 @@ func main() {
 	s := &server{
 		configfile: *conffile,
 		htmlfile:   "status.html",
+		timeout:    *timeout,
 	}
 	err := s.initialize()
 	if err != nil {

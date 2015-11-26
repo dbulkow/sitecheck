@@ -51,13 +51,17 @@ func etcdMembers(url string, client *http.Client) (error, *members) {
 }
 
 // Iterate over all members looking for health
-func (e *Etcd) Check(url string) (bool, error) {
-	timeout := time.Duration(30 * time.Second)
+func (e *Etcd) Check(site status) (bool, error) {
+	if site.Timeout == 0 {
+		site.Timeout = 30
+	}
+
+	timeout := time.Duration(time.Duration(site.Timeout) * time.Second)
 	client := &http.Client{Timeout: timeout}
 
 	health := false
 
-	err, members := etcdMembers(url, client)
+	err, members := etcdMembers(site.URL, client)
 	if err != nil {
 		return health, err
 	}
