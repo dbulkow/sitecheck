@@ -203,6 +203,7 @@ func init() {
 		"website":  new(Website),
 		"etcd":     new(Etcd),
 		"docker":   new(Docker),
+		"swarm":    new(Swarm),
 		"registry": new(Registry),
 	}
 }
