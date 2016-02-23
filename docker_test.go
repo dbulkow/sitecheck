@@ -24,7 +24,7 @@ func TestCheckStatusDocker(t *testing.T) {
 
 	s := &server{site_status: status}
 
-	s.checkStatus()
+	s.refresh(Wait)
 
 	successCheck(t, status)
 }
@@ -60,7 +60,7 @@ func TestCheckStatusDockerRealWorld(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		s := &server{site_status: status}
 
-		s.checkStatus()
+		s.refresh(Wait)
 
 		successCheck(t, status)
 

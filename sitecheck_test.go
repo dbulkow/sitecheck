@@ -38,7 +38,7 @@ func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWr
 
 	s := &server{site_status: status}
 
-	s.checkStatus()
+	s.refresh(Wait)
 
 	checker(t, status)
 }
@@ -69,7 +69,7 @@ func TestSendStatus(t *testing.T) {
 		site_status: status,
 	}
 	s.initialize()
-	s.checkStatus()
+	s.refresh(Wait)
 	b := bytes.NewBuffer(s.html)
 	io.Copy(w, b)
 
@@ -170,7 +170,7 @@ func TestCheckMany(t *testing.T) {
 
 	s := &server{site_status: status}
 
-	s.checkStatus()
+	s.refresh(Wait)
 
 	for i := range status {
 		if status[i].Status != "online" {
@@ -185,7 +185,7 @@ func TestCheckUnknownType(t *testing.T) {
 
 func TestReadConfig(t *testing.T) {
 	s := &server{configfile: "mumble"}
-	err := s.readConfig()
+	err := s.parseConfig()
 	if err == nil {
 		t.Error("expected readConfig to fail")
 	}
@@ -197,9 +197,9 @@ func TestUpdateStatusBadConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = s.updateStatus()
+	err = s.parseConfig()
 	if err == nil {
-		t.Error("expected updateStatus to fail")
+		t.Error("expected parseConfig to fail")
 	}
 }
 
@@ -232,7 +232,7 @@ func TestUpdateStatusBadExecute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = s.updateStatus()
+	err = s.genHtml()
 	if err == nil {
 		t.Error("expected a failure to execute the template")
 	}

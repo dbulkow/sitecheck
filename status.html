@@ -1,35 +1,66 @@
 <!doctype html>
 <html lang="en">
-<head>
-
-  <meta charset="utf-8">
-  <title>Site Check</title>
-
-<style>
+  <head>
+    <meta charset="utf-8">
+    <title>Site Check</title>
+    <script type="text/javascript" src="//code.jquery.com/jquery-2.2.0.min.js"></script>
+    <style>
 .offline {
     color: red
 }
-
 .online {
     color: green
 }
-</style>
+.unknown {
+    color: gray
+}
+    </style>
+  </head>
+  <body>
+    <table>
+      {{range .}}
+      <tr>
+	<td>{{.Name}}</td>
+	<td>{{if eq .Type "website"}}<a href="{{.URL}}">{{.URL}}</a>{{else}}{{.URL}}{{end}}</td>
+	<td id="{{.Hash}}" class="{{.Status}}">{{.Status}}</td>
+      </tr>
+      {{end}}
+    </table>
 
-</head>
+    <script type="text/javascript">
+function pull() {
+    $.ajax({
+	type: "GET",
+	url: "/status",
+	dataType: "json",
+	cache: false,
+	success: updater,
+    });
+}
 
-<body>
+function updater(response, success) {
+    var items = [];
+    var again = 0;
 
-  <table>
+    for (var x = 0; x < response.length; x++) {
+	resp = response[x]
 
-    {{range .Status}}
-    <tr>
-      <td>{{.Name}}</td>
-      <td>{{ if eq .Type "website" }} <a href="{{.URL}}">{{.URL}}</a> {{ else }} {{.URL}} {{ end }}</td>
-      <td class="{{.Status}}">{{.Status}}</td>
-    </tr>
-    {{end}}
+	console.log("setting "+resp.hash+" to "+resp.status);
 
-  </table>
+	$("#"+resp.hash).text(resp.status)
+	$("#"+resp.hash).attr('class', resp.status)
 
-</body>
+	if (response[x].status == "unknown") {
+	    again = 1;
+	}
+    }
+
+    if (again) {
+	window.setTimeout(pull, 1000);
+    }
+}
+
+window.setTimeout(pull, 1000);
+    </script>
+  </body>
 </html>

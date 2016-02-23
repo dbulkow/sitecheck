@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -24,6 +25,8 @@ type status struct {
 	Status  string `json:"status"`
 	URL     string `json:"url" toml:"url"`
 	Timeout int    `json:"timeout" toml:"timeout"`
+	Hash    string `json:"hash"`
+	last    time.Time
 }
 
 type sites struct {
@@ -44,10 +47,17 @@ type server struct {
 	site_status []status
 	next_status time.Time
 	last_status time.Time
+	timer_epoch int
 	html        []byte
 	timeout     int
+	epoch       int
 	sync.Mutex
 }
+
+const (
+	Wait   = true
+	NoWait = false
+)
 
 func (s *server) initialize() error {
 	var err error
@@ -60,99 +70,20 @@ func (s *server) initialize() error {
 	return nil
 }
 
-func (s *server) readConfig() error {
-	var config sites
-
-	fi, err := os.Stat(s.configfile)
-	if err != nil {
-		return err
-	}
-
-	if s.lastconfig.After(fi.ModTime()) {
-		return nil
-	}
-
-	_, err = toml.DecodeFile(s.configfile, &config)
-	if err != nil {
-		return err
-	}
-
-	s.lastconfig = time.Now()
-	s.site_status = config.Service
-
-	for i, _ := range s.site_status {
-		s.site_status[i].Status = "unknown"
-		if s.site_status[i].Timeout == 0 {
-			s.site_status[i].Timeout = s.timeout
-		}
-	}
-
-	return nil
+func genhash(name, url string) string {
+	h := md5.New()
+	io.WriteString(h, name)
+	io.WriteString(h, url)
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func (s *server) checkStatus() {
-	var wg sync.WaitGroup
-
-	for i, stat := range s.site_status {
-		ck, ok := check[stat.Type]
-		if ok == false {
-			log.Println(stat.Type, stat.URL, "unknown type")
-			continue
-		}
-
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			healthy, err := ck.Check(s.site_status[idx])
-			if err == nil && healthy {
-				s.site_status[idx].Status = "online"
-				return
-			}
-
-			s.site_status[idx].Status = "offline"
-			log.Println(s.site_status[idx].Type, s.site_status[idx].URL, err)
-		}(i)
-	}
-
-	wg.Wait()
-}
-
-func (s *server) refresh() error {
+func (s *server) genHtml() error {
 	s.Lock()
 	defer s.Unlock()
 
-	if s.next_status.Before(time.Now()) {
-		err := s.readConfig()
-		if err != nil {
-			return err
-		}
-
-		s.checkStatus()
-
-		s.last_status = time.Now()
-		s.next_status = s.last_status.Add(time.Second * 5)
-	}
-
-	return nil
-}
-
-func (s *server) updateStatus() error {
-	err := s.refresh()
-	if err != nil {
-		return err
-	}
-
-	x := &struct {
-		Status   []status
-		DateTime string
-	}{
-		Status:   s.site_status,
-		DateTime: s.last_status.String(),
-	}
-
 	b := &bytes.Buffer{}
 
-	err = s.templ.Execute(b, x)
+	err := s.templ.Execute(b, s.site_status)
 	if err != nil {
 		return err
 	}
@@ -165,14 +96,107 @@ func (s *server) updateStatus() error {
 	return nil
 }
 
+func (s *server) parseConfig() error {
+	s.Lock()
+	defer s.Unlock()
+
+	fi, err := os.Stat(s.configfile)
+	if err != nil {
+		return err
+	}
+
+	if s.lastconfig.After(fi.ModTime()) {
+		return nil
+	}
+
+	s.epoch += 1
+
+	var config sites
+
+	_, err = toml.DecodeFile(s.configfile, &config)
+	if err != nil {
+		return err
+	}
+
+	s.lastconfig = time.Now()
+	s.site_status = config.Service
+
+	for i, _ := range s.site_status {
+		s.site_status[i].Hash = genhash(s.site_status[i].Name, s.site_status[i].URL)
+		if s.site_status[i].Timeout == 0 {
+			s.site_status[i].Timeout = s.timeout
+		}
+	}
+
+	return nil
+}
+
+func (s *server) checkStatus(idx, epoch int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	ck, ok := check[s.site_status[idx].Type]
+	if ok == false {
+		log.Println(s.site_status[idx].Type, s.site_status[idx].URL, "unknown type")
+		return
+	}
+
+	healthy, err := ck.Check(s.site_status[idx])
+
+	if epoch != s.epoch {
+		fmt.Println("took too long - epoch has passed")
+		return
+	}
+
+	if err == nil && healthy {
+		s.Lock()
+		s.site_status[idx].Status = "online"
+		s.Unlock()
+		return
+	}
+
+	s.Lock()
+	s.site_status[idx].Status = "offline"
+	s.Unlock()
+	log.Println(s.site_status[idx].Type, s.site_status[idx].URL, err)
+}
+
+func (s *server) refresh(wait bool) {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.timer_epoch == s.epoch && s.next_status.After(time.Now()) {
+		return
+	}
+
+	var wg sync.WaitGroup
+
+	for i, _ := range s.site_status {
+		s.site_status[i].Status = "unknown"
+		wg.Add(1)
+		go s.checkStatus(i, s.epoch, &wg)
+	}
+
+	if wait {
+		// unlock around waitgroup to allow goroutines to complete
+		s.Unlock()
+		wg.Wait()
+		s.Lock()
+	}
+
+	s.last_status = time.Now()
+	s.next_status = s.last_status.Add(time.Minute)
+	s.timer_epoch = s.epoch
+}
+
 func (s *server) statusHandler(w http.ResponseWriter, r *http.Request) {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	log.Println("request from", host)
 
-	s.updateStatus()
+	s.parseConfig()
+	s.refresh(NoWait)
+	s.genHtml()
 
 	b := bytes.NewBuffer(s.html)
-
 	io.Copy(w, b)
 }
 
@@ -180,7 +204,8 @@ func (s *server) statusAPI(w http.ResponseWriter, r *http.Request) {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	log.Println("api req from", host)
 
-	s.updateStatus()
+	s.Lock()
+	defer s.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
 	b, err := json.MarshalIndent(s.site_status, "", "\t")
@@ -237,7 +262,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	http.HandleFunc("/", s.statusHandler)
-	http.HandleFunc("/status", s.statusAPI)
-	log.Fatal(http.ListenAndServe(":"+*port, nil))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.statusHandler)
+	mux.HandleFunc("/status", s.statusAPI)
+
+	srv := &http.Server{
+		Addr:           ":" + *port,
+		Handler:        mux,
+		ReadTimeout:    60 * time.Second,
+		WriteTimeout:   60 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+		TLSNextProto:   nil,
+	}
+
+	// go log.Fatal(srv.ListenAndServeTLS("cert.pem", "key.pem"))
+	log.Fatal(srv.ListenAndServe())
 }

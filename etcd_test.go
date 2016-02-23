@@ -144,7 +144,7 @@ func TestCheckStatusEtcdNoHealthNoConnect(t *testing.T) {
 
 	s := &server{site_status: status}
 
-	s.checkStatus()
+	s.refresh(Wait)
 
 	failCheck(t, status)
 }
