@@ -43,14 +43,14 @@ function updater(response, success) {
     var again = 0;
 
     for (var x = 0; x < response.length; x++) {
-	resp = response[x]
+	var resp = response[x];
+	var status = $("#"+resp.hash);
 
-	console.log("setting "+resp.hash+" to "+resp.status);
+	if (status.length > 0) {
+	    status.text(resp.status).attr('class', resp.status);
+	}
 
-	$("#"+resp.hash).text(resp.status)
-	$("#"+resp.hash).attr('class', resp.status)
-
-	if (response[x].status == "unknown") {
+	if (resp.status == "unknown") {
 	    again = 1;
 	}
     }
