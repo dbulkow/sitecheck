@@ -204,6 +204,9 @@ func (s *server) statusAPI(w http.ResponseWriter, r *http.Request) {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	log.Println("api req from", host)
 
+	s.parseConfig()
+	s.refresh(NoWait)
+
 	s.Lock()
 	defer s.Unlock()
 
