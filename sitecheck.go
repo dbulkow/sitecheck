@@ -205,7 +205,12 @@ func (s *server) statusAPI(w http.ResponseWriter, r *http.Request) {
 	log.Println("api req from", host)
 
 	s.parseConfig()
-	s.refresh(NoWait)
+
+	wait := NoWait
+	if r.URL.Query().Get("wait") == "true" {
+		wait = Wait
+	}
+	s.refresh(wait)
 
 	s.Lock()
 	defer s.Unlock()
