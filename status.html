@@ -12,7 +12,7 @@
     color: green
 }
 .unknown {
-    color: white
+    color: gray
 }
     </style>
   </head>
@@ -22,7 +22,7 @@
       <tr>
 	<td>{{.Name}}</td>
 	<td>{{if eq .Type "website"}}<a href="{{.URL}}">{{.URL}}</a>{{else}}{{.URL}}{{end}}</td>
-	<td id="{{.Hash}}" class="{{.Status}}">{{.Status}}</td>
+	<td id="{{.Hash}}" class="{{.Status}}"></td>
       </tr>
       {{end}}
     </table>
@@ -46,7 +46,7 @@ function updater(response, success) {
 	var resp = response[x];
 	var status = $("#"+resp.hash);
 
-	if (status.length > 0) {
+	if (status.length > 0 && resp.status != "unknown") {
 	    status.text(resp.status).attr('class', resp.status);
 	}
 
