@@ -238,11 +238,12 @@ func (s *server) statusAPI(w http.ResponseWriter, r *http.Request) {
 
 func init() {
 	check = map[string]Status{
-		"website":  new(Website),
-		"etcd":     new(Etcd),
-		"docker":   new(Docker),
-		"swarm":    new(Swarm),
-		"registry": new(Registry),
+		"website":    new(Website),
+		"etcd":       new(Etcd),
+		"docker":     new(Docker),
+		"swarm":      new(Swarm),
+		"registry":   new(Registry),
+		"subversion": new(Subversion),
 	}
 }
 
