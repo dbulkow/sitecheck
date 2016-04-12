@@ -17,9 +17,10 @@ func TestCheckStatusDocker(t *testing.T) {
 	defer ts.Close()
 
 	status := []status{{
-		Name: "SiteCheckTest",
-		Type: "docker",
-		URL:  ts.URL,
+		Name:    "SiteCheckTest",
+		Type:    "docker",
+		URL:     ts.URL,
+		Timeout: 20,
 	}}
 
 	s := &server{site_status: status}
@@ -52,9 +53,10 @@ func TestDockerNoCertFile(t *testing.T) {
 func TestCheckStatusDockerRealWorld(t *testing.T) {
 	t.Skip("move along")
 	status := []status{{
-		Name: "SiteCheckTest",
-		Type: "docker",
-		URL:  "https://fumble.foo.com:2376",
+		Name:    "SiteCheckTest",
+		Type:    "docker",
+		URL:     "https://fumble.foo.com:2376",
+		Timeout: 20,
 	}}
 
 	for i := 0; i < 1000; i++ {

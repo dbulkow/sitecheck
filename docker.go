@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"sync"
@@ -56,16 +57,27 @@ func (d *Docker) Check(site status) (bool, error) {
 
 	d.once.Do(d.setupTLS)
 
-	timeout := time.Duration(time.Duration(site.Timeout) * time.Second)
-	client := &http.Client{Timeout: timeout}
+	expire := time.Now().Add(time.Duration(site.Timeout) * time.Second)
 
-	if d.transport != nil {
-		client.Transport = d.transport
-		resp, err = client.Get(site.URL + "/info")
-	} else {
-		resp, err = http.Get(site.URL + "/info")
+	for time.Now().Before(expire) {
+		timeout := time.Duration(5 * time.Second)
+		client := &http.Client{Timeout: timeout}
+
+		if d.transport != nil {
+			client.Transport = d.transport
+			resp, err = client.Get(site.URL + "/info")
+		} else {
+			resp, err = http.Get(site.URL + "/info")
+		}
+		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+			continue
+		}
+		if err != nil {
+			return false, err
+		}
+		break
 	}
-	if err != nil {
+	if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 		return false, err
 	}
 	defer resp.Body.Close()

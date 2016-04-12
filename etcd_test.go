@@ -137,9 +137,10 @@ func TestCheckStatusEtcdNoHealthNoConnect(t *testing.T) {
 	defer ts.Close()
 
 	status := []status{{
-		Name: "SiteCheckTest",
-		Type: "etcd",
-		URL:  ts.URL,
+		Name:    "SiteCheckTest",
+		Type:    "etcd",
+		URL:     ts.URL,
+		Timeout: 20,
 	}}
 
 	s := &server{site_status: status}

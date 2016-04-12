@@ -31,9 +31,10 @@ func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWr
 	}
 
 	status := []status{{
-		Name: "SiteCheckTest",
-		Type: sitetype,
-		URL:  ts.URL,
+		Name:    "SiteCheckTest",
+		Type:    sitetype,
+		URL:     ts.URL,
+		Timeout: 20,
 	}}
 
 	s := &server{site_status: status}
@@ -57,10 +58,11 @@ func failCheck(t *testing.T, status []status) {
 
 func TestSendStatus(t *testing.T) {
 	status := []status{{
-		Name:   "SiteCheckTest",
-		Type:   "website",
-		Status: "online",
-		URL:    "http://sitecheck.com",
+		Name:    "SiteCheckTest",
+		Type:    "website",
+		Status:  "online",
+		URL:     "http://sitecheck.com",
+		Timeout: 20,
 	}}
 
 	w := httptest.NewRecorder()
@@ -147,24 +149,28 @@ func TestCheckMany(t *testing.T) {
 
 	status := []status{
 		{
-			Name: "SiteCheckTest",
-			Type: "website",
-			URL:  ts.URL,
+			Name:    "SiteCheckTest",
+			Type:    "website",
+			URL:     ts.URL,
+			Timeout: 20,
 		},
 		{
-			Name: "SiteCheckTest2",
-			Type: "registry",
-			URL:  ts.URL,
+			Name:    "SiteCheckTest2",
+			Type:    "registry",
+			URL:     ts.URL,
+			Timeout: 20,
 		},
 		{
-			Name: "SiteCheckTest3",
-			Type: "registry",
-			URL:  ts.URL,
+			Name:    "SiteCheckTest3",
+			Type:    "registry",
+			URL:     ts.URL,
+			Timeout: 20,
 		},
 		{
-			Name: "SiteCheckTest4",
-			Type: "registry",
-			URL:  ts.URL,
+			Name:    "SiteCheckTest4",
+			Type:    "registry",
+			URL:     ts.URL,
+			Timeout: 20,
 		},
 	}
 
@@ -213,6 +219,7 @@ func TestSingleRealWorld(t *testing.T) {
 	s := &server{
 		configfile: "sitecheck.conf",
 		htmlfile:   "status.html",
+		timeout:    20,
 	}
 	err := s.initialize()
 	if err != nil {
