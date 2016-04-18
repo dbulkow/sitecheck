@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"errors"
-	"log"
 	"os/exec"
 	"time"
 )
@@ -23,20 +22,17 @@ func (s *Subversion) Check(site status) (bool, error) {
 
 	c := make(chan error)
 
-	go func() {
-		err := cmd.Wait()
-		log.Println("subversion failed:", err)
-		c <- err
-	}()
+	go func() { c <- cmd.Wait() }()
 
-	timeout := time.Tick(time.Duration(site.Timeout))
+	ticker := time.NewTicker(time.Duration(site.Timeout) * time.Second)
 
 	select {
 	case err := <-c:
 		if err != nil {
 			return false, err
 		}
-	case <-timeout:
+	case <-ticker.C:
+		ticker.Stop()
 		return false, errors.New("timeout")
 	}
 

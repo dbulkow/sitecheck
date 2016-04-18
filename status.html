@@ -3,31 +3,48 @@
   <head>
     <meta charset="utf-8">
     <title>Site Check</title>
-    <link rel="icon" type="image/png" href="http://fumble.foo.com/~dbulkow/favicon-hi.png">
     <style>
-.offline {
-    color: red
+div.sitecheck {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex: wrap;
+    flex-wrap: wrap;
+    width: 150px;
 }
-.online {
-    color: green
+div.site {
+    margin: 2px;
+    min-width: 25px;
+    min-height: 25px;
+    width: 25px;
+    height: 25px;
 }
-.unknown {
-    color: gray
+div.first {
+    -webkit-flex: initial;
+    flex: initial;
+}
+div.rest {
+    -webkit-flex: none;
+    flex: none;
+}
+div.offline {
+    background-color: red;
+}
+div.online {
+    background-color: green;
+}
+div.unknown {
+    background-color: #dddddd;
 }
     </style>
   </head>
   <body>
-    <script type="text/javascript" src="//code.jquery.com/jquery-2.2.0.min.js"></script>
-
-    <table>
-      {{range .}}
-      <tr>
-	<td>{{.Name}}</td>
-	<td>{{if eq .Type "website"}}<a href="{{.URL}}">{{.URL}}</a>{{else}}{{.URL}}{{end}}</td>
-	<td id="{{.Hash}}" class="{{.Status}}"></td>
-      </tr>
+    <div class="sitecheck">
+      {{range $index, $element := .}}
+      <div id="{{.Hash}}" title="{{.Name}}: {{.URL}}" url="{{.URL}}" class="unknown site{{if eq $index 0}} first{{else}} rest{{end}}"></div>
       {{end}}
-    </table>
+    </div>
+
+    <script type="text/javascript" src="//code.jquery.com/jquery-2.2.0.min.js"></script>
 
     <script type="text/javascript">
 function pull() {
@@ -48,8 +65,11 @@ function updater(response, success) {
 	var resp = response[x];
 	var status = $("#"+resp.hash);
 
-	if (status.length > 0 && resp.status != "unknown") {
-	    status.text(resp.status).attr('class', resp.status);
+	if (resp.status != "unknown") {
+	    status.removeClass("unknown");
+	    status.removeClass("online");
+	    status.removeClass("offline");
+	    status.addClass(resp.status);
 	}
 
 	if (resp.status == "unknown") {
@@ -60,9 +80,15 @@ function updater(response, success) {
     if (again) {
 	window.setTimeout(pull, 1000);
     }
+
+    window.setTimeout(pull, 600000);
 }
 
 window.setTimeout(pull, 500);
+
+$("div.site").click(function(evt) {
+    location.href=$(this).attr("url");
+});
     </script>
   </body>
 </html>
