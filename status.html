@@ -35,12 +35,42 @@ div.online {
 div.unknown {
     background-color: #dddddd;
 }
+.tooltip {
+    outline: none;
+}
+.tooltip:hover {
+    text-decoration: none;
+}
+.tooltip span{
+    z-index: 10;
+    display: none;
+    padding: 14px 20px;
+    margin-top: -10px;
+    margin-left: 28px;
+    width: 400px;
+    text-align: left;
+}
+.tooltip:hover span{
+    display: inline;
+    position: absolute;
+    color: #111;
+    border: 1px solid #DCA;
+    background: #fffaf0;
+}
+.tooltip span {
+    border-radius: 4px;
+    box-shadow: 5px 5px 8px #ccc;
+}
     </style>
   </head>
   <body>
     <div class="sitecheck">
       {{range $index, $element := .}}
-      <div id="{{.Hash}}" title="{{.Name}}: {{.URL}}" url="{{.URL}}" class="unknown site{{if eq $index 0}} first{{else}} rest{{end}}"></div>
+      <div id="{{.Hash}}" url="{{.URL}}" class="unknown site tooltip{{if eq $index 0}} first{{else}} rest{{end}}">
+	<span class="tooltip">
+	  {{.Name}}: {{.URL}}
+	</span>
+      </div>
       {{end}}
     </div>
 
