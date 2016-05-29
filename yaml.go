@@ -23,8 +23,8 @@ type Sites struct {
 }
 
 type URL struct {
-	Name string `json:"name"`
-	Size int    `json:"size"`
+	Name  string `json:"name"`
+	State string `json:"state"`
 }
 
 type Site struct {
@@ -61,7 +61,7 @@ func main() {
 	for _, c := range sites.cfg {
 		urls := make([]*URL, 0)
 		for _, u := range c.URL {
-			urls = append(urls, &URL{Name: u, Size: 10})
+			urls = append(urls, &URL{Name: u, State: "unknown"})
 		}
 
 		s := &Site{
