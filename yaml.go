@@ -19,7 +19,7 @@ type Config struct {
 type Sites struct {
 	cfg      []*Config
 	TopLevel string  `json:"name"`
-	Sites    []*Site `json:"children"`
+	Sites    []*Site `json:"contents"`
 }
 
 type URL struct {
@@ -29,7 +29,7 @@ type URL struct {
 
 type Site struct {
 	Name string `json:"name"`
-	URLs []*URL `json:"children"`
+	URLs []*URL `json:"contents"`
 }
 
 func (s *Sites) statusHandler(w http.ResponseWriter, r *http.Request) {
