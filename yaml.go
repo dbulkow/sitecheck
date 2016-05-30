@@ -19,17 +19,18 @@ type Config struct {
 type Sites struct {
 	cfg      []*Config
 	TopLevel string  `json:"name"`
-	Sites    []*Site `json:"contents"`
+	Sites    []*Site `json:"children"`
 }
 
 type URL struct {
 	Name  string `json:"name"`
 	State string `json:"state"`
+	Size  int    `json:"size"`
 }
 
 type Site struct {
 	Name string `json:"name"`
-	URLs []*URL `json:"contents"`
+	URLs []*URL `json:"children"`
 }
 
 func (s *Sites) statusHandler(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +62,7 @@ func main() {
 	for _, c := range sites.cfg {
 		urls := make([]*URL, 0)
 		for _, u := range c.URL {
-			urls = append(urls, &URL{Name: u, State: "unknown"})
+			urls = append(urls, &URL{Name: u, State: "unknown", Size: 1000})
 		}
 
 		s := &Site{
