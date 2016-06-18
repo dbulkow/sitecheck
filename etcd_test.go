@@ -136,18 +136,18 @@ func TestCheckStatusEtcdNoHealthNoConnect(t *testing.T) {
 	ts = httptest.NewServer(http.HandlerFunc(f))
 	defer ts.Close()
 
-	status := []status{{
+	cfg := []*Config{{
 		Name:    "SiteCheckTest",
 		Type:    "etcd",
-		URL:     ts.URL,
+		URL:     []string{ts.URL},
 		Timeout: 20,
 	}}
 
-	s := &server{site_status: status}
+	s := &server{cfg: cfg}
 
 	s.refresh(Wait)
 
-	failCheck(t, status)
+	failCheck(t, cfg)
 }
 
 func TestCheckStatusEtcdBad(t *testing.T) {

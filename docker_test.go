@@ -16,18 +16,19 @@ func TestCheckStatusDocker(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	status := []status{{
+	cfg := []*Config{{
 		Name:    "SiteCheckTest",
 		Type:    "docker",
-		URL:     ts.URL,
+		URL:     []string{ts.URL},
+		state:   []string{"unknown"},
 		Timeout: 20,
 	}}
 
-	s := &server{site_status: status}
+	s := &server{cfg: cfg}
 
 	s.refresh(Wait)
 
-	successCheck(t, status)
+	successCheck(t, cfg)
 }
 
 func TestDockerMissing(t *testing.T) {
@@ -52,19 +53,19 @@ func TestDockerNoCertFile(t *testing.T) {
 
 func TestCheckStatusDockerRealWorld(t *testing.T) {
 	t.Skip("move along")
-	status := []status{{
+	cfg := []*Config{{
 		Name:    "SiteCheckTest",
 		Type:    "docker",
-		URL:     "https://fumble.foo.com:2376",
+		URL:     []string{"https://fumble.foo.com:2376"},
 		Timeout: 20,
 	}}
 
 	for i := 0; i < 1000; i++ {
-		s := &server{site_status: status}
+		s := &server{cfg: cfg}
 
 		s.refresh(Wait)
 
-		successCheck(t, status)
+		successCheck(t, cfg)
 
 		//time.Sleep(time.Millisecond * 10)
 	}

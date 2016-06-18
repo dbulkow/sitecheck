@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -20,7 +19,7 @@ func testBadResponder(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWriter, *http.Request), checker func(*testing.T, []status)) {
+func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWriter, *http.Request), checker func(*testing.T, []*Config)) {
 	var ts *httptest.Server
 
 	if handler != nil {
@@ -30,47 +29,47 @@ func testCheckStatus(t *testing.T, sitetype string, handler func(http.ResponseWr
 		ts = &httptest.Server{URL: "http://127.0.0.1:55555"}
 	}
 
-	status := []status{{
+	cfg := []*Config{{
 		Name:    "SiteCheckTest",
 		Type:    sitetype,
-		URL:     ts.URL,
+		URL:     []string{ts.URL},
+		state:   []string{"unknown"},
 		Timeout: 20,
 	}}
 
-	s := &server{site_status: status}
+	s := &server{cfg: cfg}
 
 	s.refresh(Wait)
 
-	checker(t, status)
+	checker(t, cfg)
 }
 
-func successCheck(t *testing.T, status []status) {
-	if status[0].Status != "online" {
+func successCheck(t *testing.T, cfg []*Config) {
+	if cfg[0].state[0] != "online" {
 		t.Fatal("Status != online")
 	}
 }
 
-func failCheck(t *testing.T, status []status) {
-	if status[0].Status == "online" {
+func failCheck(t *testing.T, cfg []*Config) {
+	if cfg[0].state[0] == "online" {
 		t.Fatal("Status == online, expected another state")
 	}
 }
 
 func TestSendStatus(t *testing.T) {
-	status := []status{{
+	cfg := []*Config{{
 		Name:    "SiteCheckTest",
 		Type:    "website",
-		Status:  "online",
-		URL:     "http://sitecheck.com",
+		state:   []string{"online"},
+		URL:     []string{"http://sitecheck.com"},
 		Timeout: 20,
 	}}
 
 	w := httptest.NewRecorder()
 	s := &server{
-		htmlfile:    "status.html",
-		site_status: status,
+		htmlfile: "sitecheck.html",
+		cfg:      cfg,
 	}
-	s.initialize()
 	s.refresh(Wait)
 	b := bytes.NewBuffer(s.html)
 	io.Copy(w, b)
@@ -133,54 +132,48 @@ func TestSendStatus(t *testing.T) {
 	}
 }
 
-func TestSendStatusParseFiles(t *testing.T) {
-	s := &server{
-		htmlfile: "mumble",
-	}
-	err := s.initialize()
-	if err == nil {
-		t.Error("expected sendStatus to return an error")
-	}
-}
-
 func TestCheckMany(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(testSimpleResponder))
 	defer ts.Close()
 
-	status := []status{
+	cfg := []*Config{
 		{
 			Name:    "SiteCheckTest",
 			Type:    "website",
-			URL:     ts.URL,
+			URL:     []string{ts.URL},
+			state:   []string{"unknown"},
 			Timeout: 20,
 		},
 		{
 			Name:    "SiteCheckTest2",
 			Type:    "registry",
-			URL:     ts.URL,
+			URL:     []string{ts.URL},
+			state:   []string{"unknown"},
 			Timeout: 20,
 		},
 		{
 			Name:    "SiteCheckTest3",
 			Type:    "registry",
-			URL:     ts.URL,
+			URL:     []string{ts.URL},
+			state:   []string{"unknown"},
 			Timeout: 20,
 		},
 		{
 			Name:    "SiteCheckTest4",
 			Type:    "registry",
-			URL:     ts.URL,
+			URL:     []string{ts.URL},
+			state:   []string{"unknown"},
 			Timeout: 20,
 		},
 	}
 
-	s := &server{site_status: status}
+	s := &server{cfg: cfg}
 
 	s.refresh(Wait)
 
-	for i := range status {
-		if status[i].Status != "online" {
-			t.Errorf("Status[%d] \"%s\" incorrect status: \"%s\"\n", i, status[i].Name, status[i].Status)
+	for i := range cfg {
+		if cfg[i].state[0] != "online" {
+			t.Errorf("Status[%d] \"%s\" incorrect status: \"%s\"\n", i, cfg[i].Name, cfg[i].state[0])
 		}
 	}
 }
@@ -198,13 +191,8 @@ func TestReadConfig(t *testing.T) {
 }
 
 func TestUpdateStatusBadConfig(t *testing.T) {
-	s := &server{configfile: "mumble", htmlfile: "status.html"}
-	err := s.initialize()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = s.parseConfig()
-	if err == nil {
+	s := &server{configfile: "mumble"}
+	if err := s.parseConfig(); err == nil {
 		t.Error("expected parseConfig to fail")
 	}
 }
@@ -217,30 +205,12 @@ func TestSingleRealWorld(t *testing.T) {
 	req.RemoteAddr = "sitecheck_test_single:"
 	w := httptest.NewRecorder()
 	s := &server{
-		configfile: "sitecheck.conf",
-		htmlfile:   "status.html",
+		configfile: "sitecheck.yml",
+		htmlfile:   "sitecheck.html",
 		timeout:    20,
-	}
-	err := s.initialize()
-	if err != nil {
-		t.Fatal(err)
 	}
 	s.statusHandler(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("Home page didn't return %v", http.StatusOK)
-	}
-}
-
-func TestUpdateStatusBadExecute(t *testing.T) {
-	var err error
-
-	s := &server{configfile: "sitecheck.conf"}
-	s.templ, err = template.New("test").Parse("{{.Hello}}")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = s.genHtml()
-	if err == nil {
-		t.Error("expected a failure to execute the template")
 	}
 }

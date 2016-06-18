@@ -51,13 +51,13 @@ func (d *Docker) setupTLS() {
 	d.transport = &http.Transport{TLSClientConfig: tlsConfig}
 }
 
-func (d *Docker) Check(site status) (bool, error) {
+func (d *Docker) Check(srv Service) (bool, error) {
 	var err error
 	var resp *http.Response
 
 	d.once.Do(d.setupTLS)
 
-	expire := time.Now().Add(time.Duration(site.Timeout) * time.Second)
+	expire := time.Now().Add(time.Duration(srv.Timeout) * time.Second)
 
 	for time.Now().Before(expire) {
 		timeout := time.Duration(5 * time.Second)
@@ -65,9 +65,9 @@ func (d *Docker) Check(site status) (bool, error) {
 
 		if d.transport != nil {
 			client.Transport = d.transport
-			resp, err = client.Get(site.URL + "/info")
+			resp, err = client.Get(srv.URL + "/info")
 		} else {
-			resp, err = http.Get(site.URL + "/info")
+			resp, err = http.Get(srv.URL + "/info")
 		}
 		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 			continue

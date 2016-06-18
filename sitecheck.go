@@ -1,40 +1,59 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"sync"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v2"
 )
 
-type status struct {
-	Name    string `json:"name" toml:"name"`
-	Type    string `json:"type" toml:"type"`
-	Status  string `json:"status"`
-	URL     string `json:"url" toml:"url"`
-	Timeout int    `json:"timeout" toml:"timeout"`
-	Hash    string `json:"hash"`
-	last    time.Time
+type Config struct {
+	Name        string   `toml:"name"`
+	Type        string   `toml:"type"`
+	Description string   `yaml:"description"`
+	Timeout     int      `toml:"timeout"`
+	URL         []string `toml:"url"`
+	state       []string
+	last        time.Time
 }
 
-type sites struct {
-	Service []status
+type Service struct {
+	URL     string
+	Timeout int
+}
+
+type URL struct {
+	Name  string `json:"name"`
+	State string `json:"state"`
+	URL   string `json:"url"`
+}
+
+type Site struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	URLs        []*URL `json:"children"`
+}
+
+type Sites struct {
+	TopLevel string  `json:"name"`
+	Sites    []*Site `json:"children"`
 }
 
 type Status interface {
-	Check(stat status) (bool, error)
+	Check(Service) (bool, error)
 }
 
 var check map[string]Status
@@ -43,12 +62,13 @@ type server struct {
 	configfile  string
 	lastconfig  time.Time
 	htmlfile    string
-	templ       *template.Template
-	site_status []status
+	lasthtml    time.Time
+	cfg         []*Config
+	sites       Sites
+	html        []byte
 	next_status time.Time
 	last_status time.Time
 	timer_epoch int
-	html        []byte
 	timeout     int
 	epoch       int
 	sync.Mutex
@@ -59,41 +79,11 @@ const (
 	NoWait = false
 )
 
-func (s *server) initialize() error {
-	var err error
-
-	s.templ, err = template.ParseFiles(s.htmlfile)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func genhash(name, url string) string {
 	h := md5.New()
 	io.WriteString(h, name)
 	io.WriteString(h, url)
 	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-func (s *server) genHtml() error {
-	s.Lock()
-	defer s.Unlock()
-
-	b := &bytes.Buffer{}
-
-	err := s.templ.Execute(b, s.site_status)
-	if err != nil {
-		return err
-	}
-
-	s.html, err = ioutil.ReadAll(b)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (s *server) parseConfig() error {
@@ -111,53 +101,143 @@ func (s *server) parseConfig() error {
 
 	s.epoch += 1
 
-	var config sites
+	data, err := ioutil.ReadFile(s.configfile)
+	if err != nil {
+		return err
+	}
 
-	_, err = toml.DecodeFile(s.configfile, &config)
+	err = yaml.Unmarshal(data, &s.cfg)
 	if err != nil {
 		return err
 	}
 
 	s.lastconfig = time.Now()
-	s.site_status = config.Service
 
-	for i, _ := range s.site_status {
-		s.site_status[i].Hash = genhash(s.site_status[i].Name, s.site_status[i].URL)
-		if s.site_status[i].Timeout == 0 {
-			s.site_status[i].Timeout = s.timeout
+	for i, _ := range s.cfg {
+		if s.cfg[i].Timeout == 0 {
+			s.cfg[i].Timeout = s.timeout
 		}
+		s.cfg[i].state = make([]string, len(s.cfg[i].URL))
 	}
 
 	return nil
 }
 
-func (s *server) checkStatus(idx, epoch int, wg *sync.WaitGroup) {
+func (s *server) processHTML() error {
+	s.Lock()
+	defer s.Unlock()
+
+	fi, err := os.Stat(s.htmlfile)
+	if err != nil {
+		return err
+	}
+
+	if s.lasthtml.After(fi.ModTime()) {
+		return nil
+	}
+
+	log.Println("reading", s.htmlfile)
+
+	jquery := regexp.MustCompile(`src="(jquery.*js)"`)
+	d3 := regexp.MustCompile(`src="(d3.*js)"`)
+
+	var buf bytes.Buffer
+
+	html, err := ioutil.ReadFile(s.htmlfile)
+	if err != nil {
+		return err
+	}
+
+	rdjs := func(buf *bytes.Buffer, filename string) error {
+		log.Println("reading", filename)
+		b, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return err
+		}
+		buf.WriteString("<script type=\"text/javascript\">\n")
+		buf.Write(b)
+		buf.WriteString("</script>\n")
+		return nil
+	}
+
+	rd := bytes.NewBuffer(html)
+
+	scanner := bufio.NewScanner(rd)
+
+	for scanner.Scan() {
+		text := scanner.Text()
+		jqfile := jquery.FindStringSubmatch(text)
+		d3file := d3.FindStringSubmatch(text)
+		switch {
+		case jqfile != nil && jqfile[1] != "":
+			rdjs(&buf, jqfile[1])
+		case d3file != nil && d3file[1] != "":
+			rdjs(&buf, d3file[1])
+		default:
+			buf.WriteString(text)
+			buf.WriteString("\n")
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	s.html = buf.Bytes()
+	s.lasthtml = time.Now()
+
+	return nil
+}
+
+func (s *server) processSites() {
+	s.sites.Sites = make([]*Site, 0)
+	for _, c := range s.cfg {
+		urls := make([]*URL, 0)
+		for i, u := range c.URL {
+			urls = append(urls, &URL{Name: u, State: c.state[i], URL: u})
+		}
+
+		site := &Site{
+			Name:        c.Name,
+			Description: c.Description,
+			URLs:        urls,
+		}
+
+		s.sites.Sites = append(s.sites.Sites, site)
+	}
+}
+
+func (s *server) checkStatus(idx, url, epoch int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	ck, ok := check[s.site_status[idx].Type]
+	ck, ok := check[s.cfg[idx].Type]
 	if ok == false {
-		log.Println(s.site_status[idx].Type, s.site_status[idx].URL, "unknown type")
+		log.Println(s.cfg[idx].Type, s.cfg[idx].URL[url], "unknown type")
 		return
 	}
 
-	healthy, err := ck.Check(s.site_status[idx])
+	serv := Service{
+		Timeout: s.cfg[idx].Timeout,
+		URL:     s.cfg[idx].URL[url],
+	}
+
+	healthy, err := ck.Check(serv)
 
 	if epoch != s.epoch {
-		fmt.Println("took too long - epoch has passed")
+		log.Println("took too long - epoch has passed")
 		return
 	}
 
 	if err == nil && healthy {
 		s.Lock()
-		s.site_status[idx].Status = "online"
+		s.cfg[idx].state[url] = "online"
 		s.Unlock()
 		return
 	}
 
 	s.Lock()
-	s.site_status[idx].Status = "offline"
+	s.cfg[idx].state[url] = "offline"
 	s.Unlock()
-	log.Println(s.site_status[idx].Type, s.site_status[idx].URL, err)
+	log.Println(s.cfg[idx].Type, s.cfg[idx].URL[url], err)
 }
 
 func (s *server) refresh(wait bool) {
@@ -170,10 +250,12 @@ func (s *server) refresh(wait bool) {
 
 	var wg sync.WaitGroup
 
-	for i, _ := range s.site_status {
-		s.site_status[i].Status = "unknown"
-		wg.Add(1)
-		go s.checkStatus(i, s.epoch, &wg)
+	for i, _ := range s.cfg {
+		for u, _ := range s.cfg[i].URL {
+			s.cfg[i].state[u] = "unknown"
+			wg.Add(1)
+			go s.checkStatus(i, u, s.epoch, &wg)
+		}
 	}
 
 	if wait {
@@ -186,6 +268,8 @@ func (s *server) refresh(wait bool) {
 	s.last_status = time.Now()
 	s.next_status = s.last_status.Add(time.Minute)
 	s.timer_epoch = s.epoch
+
+	s.processSites()
 }
 
 func (s *server) statusHandler(w http.ResponseWriter, r *http.Request) {
@@ -193,8 +277,10 @@ func (s *server) statusHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("request from", host)
 
 	s.parseConfig()
-	s.refresh(NoWait)
-	s.genHtml()
+	s.processHTML()
+	//	s.refresh(NoWait)
+
+	w.Header().Set("Content-Type", "text/html")
 
 	b := bytes.NewBuffer(s.html)
 	io.Copy(w, b)
@@ -205,18 +291,13 @@ func (s *server) statusAPI(w http.ResponseWriter, r *http.Request) {
 	log.Println("api req from", host)
 
 	s.parseConfig()
-
-	wait := NoWait
-	if r.URL.Query().Get("wait") == "true" {
-		wait = Wait
-	}
-	s.refresh(wait)
+	s.refresh(r.URL.Query().Get("wait") == "true")
 
 	s.Lock()
 	defer s.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	b, err := json.MarshalIndent(s.site_status, "", "\t")
+	b, err := json.MarshalIndent(s.sites, "", "\t")
 	if err != nil {
 		h := &struct {
 			Code    int    `json:"code"`
@@ -250,7 +331,7 @@ func init() {
 func main() {
 	var (
 		port     = flag.String("port", "", "HTTP service address (.e.g. 8080)")
-		conffile = flag.String("conf", "sitecheck.conf", "Configuration file")
+		conffile = flag.String("conf", "sitecheck.yml", "Configuration file")
 		timeout  = flag.Int("timeout", 20, "default timeout")
 	)
 
@@ -263,16 +344,12 @@ func main() {
 
 	s := &server{
 		configfile: *conffile,
-		htmlfile:   "status.html",
+		htmlfile:   "sitecheck.html",
 		timeout:    *timeout,
-	}
-	err := s.initialize()
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.statusHandler)
+	mux.Handle("/", makeGzipHandler(s.statusHandler))
 	mux.HandleFunc("/status", s.statusAPI)
 
 	srv := &http.Server{

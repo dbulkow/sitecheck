@@ -9,10 +9,10 @@ import (
 
 type Subversion struct{}
 
-func (s *Subversion) Check(site status) (bool, error) {
+func (s *Subversion) Check(srv Service) (bool, error) {
 	var buf bytes.Buffer
 
-	cmd := exec.Command("svn", "info", site.URL)
+	cmd := exec.Command("svn", "info", srv.URL)
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 
@@ -24,7 +24,7 @@ func (s *Subversion) Check(site status) (bool, error) {
 
 	go func() { c <- cmd.Wait() }()
 
-	ticker := time.NewTicker(time.Duration(site.Timeout) * time.Second)
+	ticker := time.NewTicker(time.Duration(srv.Timeout) * time.Second)
 
 	select {
 	case err := <-c:

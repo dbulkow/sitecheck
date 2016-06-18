@@ -84,20 +84,20 @@ func (s *Swarm) setupTLS() {
 	s.transport = &http.Transport{TLSClientConfig: tlsConfig}
 }
 
-func (s *Swarm) Check(site status) (bool, error) {
+func (s *Swarm) Check(srv Service) (bool, error) {
 	var err error
 	var resp *http.Response
 
 	s.once.Do(s.setupTLS)
 
-	timeout := time.Duration(time.Duration(site.Timeout) * time.Second)
+	timeout := time.Duration(time.Duration(srv.Timeout) * time.Second)
 	client := &http.Client{Timeout: timeout}
 
 	if s.transport != nil {
 		client.Transport = s.transport
-		resp, err = client.Get(site.URL + "/info")
+		resp, err = client.Get(srv.URL + "/info")
 	} else {
-		resp, err = http.Get(site.URL + "/info")
+		resp, err = http.Get(srv.URL + "/info")
 	}
 	if err != nil {
 		return false, err
