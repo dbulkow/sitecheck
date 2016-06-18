@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"crypto/md5"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -78,13 +77,6 @@ const (
 	Wait   = true
 	NoWait = false
 )
-
-func genhash(name, url string) string {
-	h := md5.New()
-	io.WriteString(h, name)
-	io.WriteString(h, url)
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
 
 func (s *server) parseConfig() error {
 	s.Lock()
