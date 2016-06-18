@@ -126,7 +126,20 @@ d3.json("/status?wait=true", function(json) {
 	}
     }
 
-/*    root.children.forEach(toggleAll);*/
+    root.children.forEach(toggleAll);
+
+    function showOffline(d) {
+	if (d._children) {
+	    var parent = d;
+	    d._children.forEach(function(d) {
+		if (d.state == "offline") {
+		    toggle(parent);
+		}
+	    });
+	}
+    }
+
+    root.children.forEach(showOffline);
 
     update(root);
 });
