@@ -8,8 +8,9 @@ body {
   background-color: #fafafa;
   overflow: hidden;
   margin: 0;
-  font-size: 14px;
-  font-family: "Helvetica Neue", Helvetica;
+  font-size: 1em;
+/*  font-family: "Helvetica Neue", Helvetica; */
+  font-family: "Verdana", sans-serif;
 }
 
 #body {
@@ -18,45 +19,9 @@ body {
   position: relative;
 }
 
-#chart, #header, #footer {
-  position: absolute;
-  top: 0;
-}
-
-#header, #footer {
-  z-index: 1;
-  display: block;
-  font-size: 30px;
-  font-weight: 300;
-  text-shadow: 0 1px 0 #fff;
-}
-
-#header.inverted, #footer.inverted {
-  color: #fff;
-  text-shadow: 0 1px 4px #000;
-}
-
-#header {
-  top: 20px;
-  right: 10px;
-  width: 300px;
-  text-align: right;
-}
-
-#footer {
-  top: 520px;
-  right: 10px;
-  width: 300px;
-  text-align: right;
-}
-
 rect {
   fill: none;
   pointer-events: all;
-}
-
-pre {
-  font-size: 18px;
 }
 
 line {
@@ -110,7 +75,7 @@ a:hover {
 }
 
 .node text {
-  font-size: 12px;
+  font-size: 0.8em/*14px*/;
 }
 
 path.link {
