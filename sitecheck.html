@@ -97,6 +97,7 @@ var m = [20, 120, 20, 20],
     root;
 
 var tree = d3.layout.tree()
+    .separation(function(a, b) { return ((a.parent == root) && (b.parent == root)) ? 5 : 3 })
     .size([h, w]);
 
 var diagonal = d3.svg.diagonal()
