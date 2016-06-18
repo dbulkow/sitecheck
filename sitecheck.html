@@ -155,17 +155,14 @@ function update(source) {
 	.style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; });
 
     nodeEnter.append("a")
-	.attr("xlink:href", function(d) { return d.url; });
-
-    nodeEnter.append("svg:text")
+	.attr("xlink:href", function(d) { return d.url; })
+	.append("svg:text")
+	.attr("title", function(d) { return d.description; })
 	.attr("x", function(d) { return d.children || d._children ? -10 : 10; })
 	.attr("dy", ".35em")
 	.attr("text-anchor", function(d) { return d.children || d._children ? "end" : "start"; })
 	.text(function(d) { return d.name; })
 	.style("fill-opacity", 1e-6);
-
-    nodeEnter.append("svg:title")
-	.text(function(d) { return d.description; });
 
     // Transition nodes to their new position.
     var nodeUpdate = node.transition()
