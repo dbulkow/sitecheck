@@ -93,6 +93,8 @@ func (s *server) parseConfig() error {
 
 	s.epoch += 1
 
+	log.Println("reading", s.configfile)
+
 	data, err := ioutil.ReadFile(s.configfile)
 	if err != nil {
 		return err
