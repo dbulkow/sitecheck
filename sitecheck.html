@@ -97,12 +97,12 @@ path.link {
     <script>
 var m = [20, 120, 20, 20],
     w = 1280 - m[1] - m[3],
-    h = 700 - m[0] - m[2],
+    h = 750 - m[0] - m[2],
     i = 0,
     root;
 
 var tree = d3.layout.tree()
-    .separation(function(a, b) { return ((a.parent == root) && (b.parent == root)) ? 5 : 3 })
+    .separation(function(a, b) { return ((a.parent == root) && (b.parent == root)) ? 5 : 4 })
     .size([h, w]);
 
 var diagonal = d3.svg.diagonal()
