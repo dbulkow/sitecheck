@@ -319,6 +319,7 @@ func init() {
 		"swarm":      new(Swarm),
 		"registry":   new(Registry),
 		"subversion": new(Subversion),
+		"telnet":     new(Telnet),
 	}
 }
 
