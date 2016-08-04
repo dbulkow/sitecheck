@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -20,6 +21,8 @@ func (w *Website) Check(srv Service) (bool, error) {
 	if resp.StatusCode != 200 {
 		return false, nil
 	}
+
+	ioutil.ReadAll(resp.Body)
 
 	return true, nil
 }
