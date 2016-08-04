@@ -320,6 +320,7 @@ func init() {
 		"registry":   new(Registry),
 		"subversion": new(Subversion),
 		"telnet":     new(Telnet),
+		"consul":     new(Consul),
 	}
 }
 
