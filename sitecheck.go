@@ -333,11 +333,6 @@ func main() {
 
 	flag.Parse()
 
-	if *port == "" {
-		flag.Usage()
-		return
-	}
-
 	s := &server{
 		configfile: *conffile,
 		htmlfile:   "sitecheck.html",
