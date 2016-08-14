@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -23,7 +24,15 @@ func (w *Registry) Check(srv Service) (bool, error) {
 		return false, errors.New("Bad status")
 	}
 
+	ver := resp.Header.Get("Docker-Distribution-API-Version")
+
 	ioutil.ReadAll(resp.Body)
+
+	fmt.Println(ver)
+
+	if ver != "registry/2.0" {
+		return false, nil
+	}
 
 	return true, nil
 }

@@ -11,6 +11,11 @@ import (
 	"golang.org/x/net/html"
 )
 
+func testRegistryResponder(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Docker-Distribution-API-Version", "registry/2.0")
+	fmt.Fprintln(w, "")
+}
+
 func testSimpleResponder(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "hello, client", r.URL)
 }
@@ -136,6 +141,9 @@ func TestCheckMany(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(testSimpleResponder))
 	defer ts.Close()
 
+	tsReg := httptest.NewServer(http.HandlerFunc(testRegistryResponder))
+	defer tsReg.Close()
+
 	cfg := []*Config{
 		{
 			Name:    "SiteCheckTest",
@@ -147,21 +155,21 @@ func TestCheckMany(t *testing.T) {
 		{
 			Name:    "SiteCheckTest2",
 			Type:    "registry",
-			URL:     []string{ts.URL},
+			URL:     []string{tsReg.URL},
 			state:   []string{"unknown"},
 			Timeout: 20,
 		},
 		{
 			Name:    "SiteCheckTest3",
 			Type:    "registry",
-			URL:     []string{ts.URL},
+			URL:     []string{tsReg.URL},
 			state:   []string{"unknown"},
 			Timeout: 20,
 		},
 		{
 			Name:    "SiteCheckTest4",
 			Type:    "registry",
-			URL:     []string{ts.URL},
+			URL:     []string{tsReg.URL},
 			state:   []string{"unknown"},
 			Timeout: 20,
 		},

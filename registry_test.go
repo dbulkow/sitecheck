@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestCheckStatusRegistry(t *testing.T) {
-	testCheckStatus(t, "registry", testSimpleResponder, successCheck)
+	testCheckStatus(t, "registry", testRegistryResponder, successCheck)
 }
 
 func TestCheckStatusRegistryBad(t *testing.T) {
