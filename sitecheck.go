@@ -329,6 +329,7 @@ func main() {
 		port     = flag.String("port", "", "HTTP service address (.e.g. 8080)")
 		conffile = flag.String("conf", "sitecheck.yml", "Configuration file")
 		timeout  = flag.Int("timeout", 20, "default timeout")
+		bindaddr = flag.String("bind", "", "Bind address for port, defaults to 0.0.0.0 or *")
 	)
 
 	flag.Parse()
@@ -344,7 +345,7 @@ func main() {
 	mux.HandleFunc("/status", s.statusAPI)
 
 	srv := &http.Server{
-		Addr:           ":" + *port,
+		Addr:           *bindaddr + ":" + *port,
 		Handler:        mux,
 		ReadTimeout:    60 * time.Second,
 		WriteTimeout:   60 * time.Second,
