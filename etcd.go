@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -68,9 +69,20 @@ func (e *Etcd) Check(srv Service) (bool, error) {
 
 	for _, m := range members.Members {
 		for _, url := range m.ClientURLs {
-			resp, err := client.Get(url + "/health")
+			req, err := http.NewRequest(http.MethodGet, url+"/health", nil)
+			if err != nil {
+				return false, fmt.Errorf("newrequest: %v", err)
+			}
+
+			req.Close = true
+
+			resp, err := client.Do(req)
 			if err != nil {
 				log.Printf("failed to check health of member %s on %s: %v\n", m.ID, url, err)
+				continue
+			}
+			if resp == nil {
+				log.Printf("response body empty, member %s on %s\n", m.ID, url)
 				continue
 			}
 
@@ -80,8 +92,8 @@ func (e *Etcd) Check(srv Service) (bool, error) {
 			}
 
 			result := struct{ Health string }{}
-			d := json.NewDecoder(resp.Body)
-			err = d.Decode(&result)
+			err = json.NewDecoder(resp.Body).Decode(&result)
+			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
 			if err != nil {
 				fmt.Printf("failed to check the health of member %s on %s: %v\n", m.ID, url, err)

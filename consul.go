@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -14,19 +16,27 @@ func (c *Consul) Check(srv Service) (bool, error) {
 	timeout := time.Duration(time.Duration(srv.Timeout) * time.Second)
 	client := &http.Client{Timeout: timeout}
 
-	resp, err := client.Get(srv.URL)
+	req, err := http.NewRequest(http.MethodGet, srv.URL, nil)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("newrequest: %v", err)
 	}
-	defer resp.Body.Close()
+
+	req.Close = true
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("client request: %v", err)
+	}
+	if resp == nil {
+		return false, fmt.Errorf("empty response")
+	}
+	defer func() {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		return false, nil
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return false, err
 	}
 
 	type reply struct {
@@ -44,8 +54,8 @@ func (c *Consul) Check(srv Service) (bool, error) {
 
 	data := make([]reply, 0)
 
-	if err := json.Unmarshal(b, &data); err != nil {
-		return false, err
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return false, fmt.Errorf("unmarshal: %v", err)
 	}
 
 	if len(data) < 1 {

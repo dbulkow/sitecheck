@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -93,31 +94,37 @@ func (s *Swarm) Check(srv Service) (bool, error) {
 	timeout := time.Duration(time.Duration(srv.Timeout) * time.Second)
 	client := &http.Client{Timeout: timeout}
 
+	req, err := http.NewRequest(http.MethodGet, srv.URL+"/info", nil)
+	if err != nil {
+		return false, fmt.Errorf("newrequest: %v", err)
+	}
+
+	req.Close = true
+
 	if s.transport != nil {
 		client.Transport = s.transport
-		resp, err = client.Get(srv.URL + "/info")
-	} else {
-		resp, err = http.Get(srv.URL + "/info")
 	}
+	resp, err = client.Do(req)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("client request: %v", err)
 	}
-	defer resp.Body.Close()
+	if resp == nil {
+		return false, fmt.Errorf("empty response")
+	}
+	defer func() {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		return false, fmt.Errorf("response status %d", resp.StatusCode)
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return false, err
-	}
-
 	info := &swarminfo{}
 
-	err = json.Unmarshal(b, info)
+	err = json.NewDecoder(resp.Body).Decode(info)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("unmarshal: %v", err)
 	}
 	/*
 		for _, x := range info.DriverStatus {

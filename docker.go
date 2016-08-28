@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -63,30 +65,40 @@ func (d *Docker) Check(srv Service) (bool, error) {
 		timeout := time.Duration(5 * time.Second)
 		client := &http.Client{Timeout: timeout}
 
+		req, err := http.NewRequest(http.MethodGet, srv.URL+"/info", nil)
+		if err != nil {
+			return false, fmt.Errorf("newrequest: %v", err)
+		}
+
+		req.Close = true
+
 		if d.transport != nil {
 			client.Transport = d.transport
-			resp, err = client.Get(srv.URL + "/info")
-		} else {
-			resp, err = http.Get(srv.URL + "/info")
 		}
+
+		resp, err = client.Do(req)
 		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 			continue
 		}
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("client request: %v", err)
 		}
 		break
 	}
 	if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 		return false, err
 	}
-	defer resp.Body.Close()
+	if resp == nil {
+		return false, fmt.Errorf("empty response")
+	}
+	defer func() {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		return false, nil
 	}
-
-	ioutil.ReadAll(resp.Body)
 
 	return true, nil
 }
